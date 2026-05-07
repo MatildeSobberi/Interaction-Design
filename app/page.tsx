@@ -13,18 +13,19 @@ export default function HomePage() {
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   
-  // Partiamo dal presupposto che l'utente abbia già interagito per evitare il flash
+  // Stato iniziale: titolo nascosto per evitare il "lampo"
   const [hasInteracted, setHasInteracted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const [isReady, setIsReady] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // 1. Controlla subito la sessione
+    setIsClient(true);
+    
+    // Controlla la sessione solo nel browser
     const giaVisto = sessionStorage.getItem('visto');
     if (!giaVisto) {
-      setHasInteracted(false); // Mostra il titolo solo se non c'è il "segnalibro" nella sessione
+      setHasInteracted(false);
     }
-    setIsReady(true);
 
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -39,7 +40,8 @@ export default function HomePage() {
     };
     caricaDati();
 
-    if (map.current) return;
+    if (map.current || !mapContainer.current) return;
+    
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
@@ -50,14 +52,14 @@ export default function HomePage() {
 
     const handleFirstInteraction = () => {
       setHasInteracted(true);
-      sessionStorage.setItem('visto', 'true'); // Crea il segnalibro
+      sessionStorage.setItem('visto', 'true');
     };
 
     map.current.on('zoomstart', handleFirstInteraction);
     map.current.on('mousedown', handleFirstInteraction);
     map.current.on('touchstart', handleFirstInteraction);
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
-  }, [isMobile]);
+  }, [isMobile, isClient]);
 
   useEffect(() => {
     if (!map.current) return;
@@ -81,35 +83,36 @@ export default function HomePage() {
     });
   }, [punti, currentZoom, isMobile]);
 
-  if (!isReady) return null;
+  // Se non siamo ancora sul client, non renderizziamo nulla per evitare errori
+  if (!isClient) return <div style={{ backgroundColor: '#fff', width: '100vw', height: '100vh' }} />;
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {/* Overlay e Titolo - Appaiono solo se non è mai stato visto nella sessione */}
-      {!hasInteracted && (
+      {/* Titolo e Overlay */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
+        transition: 'opacity 0.8s ease', 
+        opacity: hasInteracted ? 0 : 1,
+        visibility: hasInteracted ? 'hidden' : 'visible', 
+        backdropFilter: 'blur(2px)'
+      }}>
         <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
-          backdropFilter: 'blur(2px)'
+          position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
+          textAlign: 'center', width: '90%'
         }}>
-          <div style={{
-            position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
-            textAlign: 'center', width: '90%'
-          }}>
-            <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
-              What if A.I. started with a question,<br /> 
-              being curious about the world?<br /> 
-              But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
-            </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
-              Tap and zoom in the map
-            </p>
-          </div>
+          <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
+            What if A.I. started with a question,<br /> 
+            being curious about the world?<br /> 
+            But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
+          </h1>
+          <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
+            Tap and zoom in the map
+          </p>
         </div>
-      )}
+      </div>
 
-      {/* NAVBAR */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
