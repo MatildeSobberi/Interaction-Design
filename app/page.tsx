@@ -16,9 +16,9 @@ export default function HomePage() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // 1. Controlla subito se l'utente ha già interagito in passato
-    const giaVisto = localStorage.getItem('hasInteracted');
-    if (giaVisto === 'true') {
+    // 1. USARE SESSION STORAGE: dura solo finché la scheda è aperta
+    const giaVistoInQuestaSessione = sessionStorage.getItem('hasInteracted');
+    if (giaVistoInQuestaSessione === 'true') {
       setHasInteracted(true);
     }
 
@@ -46,7 +46,8 @@ export default function HomePage() {
 
     const handleFirstInteraction = () => {
       setHasInteracted(true);
-      localStorage.setItem('hasInteracted', 'true');
+      // Salva nella sessione che l'utente ha interagito
+      sessionStorage.setItem('hasInteracted', 'true');
     };
 
     map.current.on('zoomstart', handleFirstInteraction);
@@ -80,7 +81,6 @@ export default function HomePage() {
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {/* Il titolo appare solo se hasInteracted è FALSO */}
       {!hasInteracted && (
         <>
           <div style={{
@@ -104,7 +104,6 @@ export default function HomePage() {
         </>
       )}
 
-      {/* NAVBAR */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
@@ -125,7 +124,6 @@ export default function HomePage() {
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
 
-      {/* MAPPA - Deve essere sempre fuori dai condizionali per caricarsi */}
       <div ref={mapContainer} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
     </main>
   );
