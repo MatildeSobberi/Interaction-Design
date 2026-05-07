@@ -91,7 +91,7 @@ export default function HomePage() {
         visibility: hasInteracted ? 'hidden' : 'visible', backdropFilter: 'blur(2px)'
       }} />
 
-      {/* NAVBAR RESPONSIVE */}
+{/* NAVBAR RESPONSIVE AGGIORNATA */}
       <div style={{
         position: 'absolute',
         top: isMobile ? '10px' : '25px',
@@ -106,9 +106,12 @@ export default function HomePage() {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        flexWrap: 'nowrap', // Impedisce di andare a capo male
-        overflowX: isMobile ? 'auto' : 'visible', // Permette lo scroll orizzontale se non ci sta
       }}>
+        {/* ICONA MAPPA - REFRESH */}
+        <a href="/" style={{ fontSize: '20px', textDecoration: 'none', cursor: 'pointer' }}>📍</a>
+        
+        <div style={{ flexGrow: 1, height: '1px', background: '#000', margin: '0 20px', opacity: 0.1 }}></div>
+
         {navItems.map((item, index) => (
           <React.Fragment key={item.label}>
             <a href={item.href} style={{
@@ -119,8 +122,8 @@ export default function HomePage() {
             {index < navItems.length - 1 && (
               <div style={{
                 flexGrow: 1, height: '1px', background: '#000', 
-                margin: isMobile ? '0 8px' : '0 25px', opacity: 0.2,
-                display: isMobile ? 'none' : 'flex', // Nascondiamo le linee su mobile per pulizia
+                margin: isMobile ? '0 8px' : '0 25px', opacity: 0.1,
+                display: isMobile ? 'none' : 'flex',
                 alignItems: 'center', justifyContent: 'center'
               }}>
                 <div style={{ width: '5px', height: '5px', background: '#000', borderRadius: '50%' }}></div>
