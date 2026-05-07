@@ -1,28 +1,19 @@
 "use client";
 
-import React, { useEffect, useRef, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation'; // Per leggere il parametro nell'URL
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from './supabase';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
-function MapContent() {
-  const searchParams = useSearchParams();
+export default function HomePage() {
   const mapContainer = useRef<any>(null);
   const map = useRef<any>(null);
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
-  // Se nell'URL c'è ?interacted=true, nascondi subito il messaggio
-  useEffect(() => {
-    if (searchParams.get('interacted') === 'true') {
-      setHasInteracted(true);
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -31,13 +22,13 @@ function MapContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  useEffect(() => {
-    const caricaDati = async () => {
-      const { data } = await supabase.from('segnalazioni').select('*');
-      if (data) setPunti(data);
-    };
-    caricaDati();
+  const caricaDati = async () => {
+    const { data } = await supabase.from('segnalazioni').select('*');
+    if (data) setPunti(data);
+  };
 
+  useEffect(() => {
+    caricaDati();
     if (map.current) return;
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -83,8 +74,13 @@ function MapContent() {
   }, [punti, currentZoom, isMobile]);
 
   const navLinkStyle = {
-    color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500',
-    textTransform: 'uppercase' as const, letterSpacing: '1px', opacity: 0.6
+    color: '#000',
+    textDecoration: 'none',
+    fontSize: '11px',
+    fontWeight: '500',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '1px',
+    opacity: 0.6
   };
 
   return (
@@ -97,6 +93,7 @@ function MapContent() {
         visibility: hasInteracted ? 'hidden' : 'visible', backdropFilter: 'blur(2px)'
       }} />
 
+      {/* NAVBAR SIMMETRICA CON MAPPA AL CENTRO */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
@@ -109,7 +106,7 @@ function MapContent() {
         <a href="/about-us" style={navLinkStyle}>About Us</a>
         <a href="/about-you" style={navLinkStyle}>About You</a>
 
-        <a href="/?interacted=true" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
+        <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
             <line x1="9" y1="3" x2="9" y2="18" />
@@ -139,13 +136,5 @@ function MapContent() {
 
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
     </main>
-  );
-}
-
-export default function HomePage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <MapContent />
-    </Suspense>
   );
 }
