@@ -5,7 +5,6 @@ export default function AboutUs() {
   return (
     <main style={{ minHeight: '100vh', backgroundColor: '#f9f9f9', fontFamily: 'var(--font-roboto), sans-serif', padding: '120px 20px' }}>
       
-      {/* NAVBAR CON PALLINO SU ABOUT US */}
       <nav style={{ 
         position: 'fixed', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 100,
         padding: '12px 35px', borderRadius: '40px',
@@ -18,15 +17,11 @@ export default function AboutUs() {
           <div style={{ width: '4px', height: '4px', background: '#000', borderRadius: '50%' }} />
         </a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.4 }}>About You</a>
-
         <a href="/" style={{ color: '#000', margin: '0 10px' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
-            <line x1="9" y1="3" x2="9" y2="18" />
-            <line x1="15" y1="6" x2="15" y2="21" />
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" />
           </svg>
         </a>
-
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.4 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.4 }}>Feedback</a>
       </nav>
