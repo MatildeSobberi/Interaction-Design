@@ -13,8 +13,15 @@ export default function HomePage() {
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const ZOOM_THRESHOLD = 4; 
+  // Controllo per vedere se l'utente è da Mobile
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const caricaDati = async () => {
     const { data } = await supabase.from('segnalazioni').select('*');
@@ -23,13 +30,12 @@ export default function HomePage() {
 
   useEffect(() => {
     caricaDati();
-
     if (map.current) return;
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
       center: [12.49, 41.89],
-      zoom: 2,
+      zoom: isMobile ? 1 : 2, // Zoom più lontano su mobile per vedere tutto
       projection: { name: 'mercator' }
     });
 
@@ -43,18 +49,13 @@ export default function HomePage() {
     map.current.on('zoomstart', handleFirstInteraction);
     map.current.on('mousedown', handleFirstInteraction);
     map.current.on('touchstart', handleFirstInteraction);
-
-    map.current.on('zoom', () => {
-      setCurrentZoom(map.current.getZoom());
-    });
-  }, []);
+    map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
+  }, [isMobile]);
 
   useEffect(() => {
     if (!map.current) return;
-    const existingMarkers = document.querySelectorAll('.custom-marker');
-    existingMarkers.forEach(m => m.remove());
-
-    if (currentZoom < ZOOM_THRESHOLD) return;
+    document.querySelectorAll('.custom-marker').forEach(m => m.remove());
+    if (currentZoom < 4) return;
 
     punti.forEach((punto) => {
       const el = document.createElement('div');
@@ -62,30 +63,16 @@ export default function HomePage() {
       el.innerText = punto.parola;
       el.style.fontFamily = 'var(--font-roboto), sans-serif';
       el.style.background = 'rgba(255, 255, 255, 0.6)';
-      el.style.padding = '8px 15px';
+      el.style.padding = isMobile ? '4px 10px' : '8px 15px'; // Padding ridotto su mobile
       el.style.borderRadius = '20px';
-      el.style.border = '1px solid rgba(255, 255, 255, 0.4)';
       el.style.color = '#000';
-      el.style.fontSize = `${14 + (punto.frequenza * 3)}px`;
+      const baseSize = isMobile ? 10 : 14; // Font più piccolo su mobile
+      el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
       el.style.fontWeight = 'bold';
       el.style.backdropFilter = 'blur(4px)';
-      
-      new mapboxgl.Marker(el)
-        .setLngLat([punto.lng, punto.lat])
-        .addTo(map.current);
+      new mapboxgl.Marker(el).setLngLat([punto.lng, punto.lat]).addTo(map.current);
     });
-  }, [punti, currentZoom]);
-
-  const linkStyle = { 
-    color: '#000', 
-    textDecoration: 'none', 
-    fontFamily: 'var(--font-roboto), sans-serif',
-    fontSize: '13px',
-    fontWeight: '700',
-    textTransform: 'uppercase' as const,
-    whiteSpace: 'nowrap' as const,
-    zIndex: 12
-  };
+  }, [punti, currentZoom, isMobile]);
 
   const navItems = [
     { label: 'About Us', href: '/about-us' },
@@ -97,87 +84,62 @@ export default function HomePage() {
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {/* OVERLAY DI SFONDO OPACO */}
       <div style={{
-        position: 'absolute',
-        top: 0, left: 0, width: '100%', height: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.6)', 
-        zIndex: 4,
-        pointerEvents: 'none',
-        transition: 'opacity 1s ease',
-        opacity: hasInteracted ? 0 : 1,
-        visibility: hasInteracted ? 'hidden' : 'visible',
-        backdropFilter: 'blur(2px)'
+        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
+        transition: 'opacity 1s ease', opacity: hasInteracted ? 0 : 1,
+        visibility: hasInteracted ? 'hidden' : 'visible', backdropFilter: 'blur(2px)'
       }} />
 
-      {/* NAVBAR CON UNICO RIQUADRO GRIGIO LUNGO */}
+      {/* NAVBAR RESPONSIVE */}
       <div style={{
         position: 'absolute',
-        top: '25px',
-        left: '30px',
-        right: '30px',
+        top: isMobile ? '10px' : '25px',
+        left: isMobile ? '10px' : '30px',
+        right: isMobile ? '10px' : '30px',
         zIndex: 10,
-        padding: '12px 40px',
+        padding: isMobile ? '10px 15px' : '12px 40px',
         borderRadius: '40px',
-        background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent',
-        border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent',
+        background: hasInteracted ? 'rgba(230, 230, 230, 0.8)' : 'transparent',
         backdropFilter: hasInteracted ? 'blur(12px)' : 'none',
-        transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'all 0.8s ease',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        flexWrap: 'nowrap', // Impedisce di andare a capo male
+        overflowX: isMobile ? 'auto' : 'visible', // Permette lo scroll orizzontale se non ci sta
       }}>
         {navItems.map((item, index) => (
           <React.Fragment key={item.label}>
-            <a href={item.href} style={linkStyle}>{item.label}</a>
+            <a href={item.href} style={{
+              color: '#000', textDecoration: 'none', fontWeight: '700', textTransform: 'uppercase',
+              fontSize: isMobile ? '10px' : '13px', whiteSpace: 'nowrap'
+            }}>{item.label}</a>
             
             {index < navItems.length - 1 && (
               <div style={{
-                flexGrow: 1,
-                height: '1px',
-                background: '#000',
-                margin: '0 25px',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: 0.2
+                flexGrow: 1, height: '1px', background: '#000', 
+                margin: isMobile ? '0 8px' : '0 25px', opacity: 0.2,
+                display: isMobile ? 'none' : 'flex', // Nascondiamo le linee su mobile per pulizia
+                alignItems: 'center', justifyContent: 'center'
               }}>
-                <div style={{
-                  width: '5px', 
-                  height: '5px', 
-                  background: '#000', 
-                  borderRadius: '50%',
-                  position: 'absolute'
-                }}></div>
+                <div style={{ width: '5px', height: '5px', background: '#000', borderRadius: '50%' }}></div>
               </div>
             )}
           </React.Fragment>
         ))}
       </div>
 
-      {/* MESSAGGIO CENTRALE - TESTO CORRETTO */}
+      {/* MESSAGGIO CENTRALE RESPONSIVE */}
       <div style={{
-        position: 'absolute', 
-        top: '55%', 
-        left: '50%', 
-        transform: 'translate(-50%, -50%)',
-        zIndex: 5, 
-        textAlign: 'center', 
-        width: '95%', 
-        maxWidth: '1200px',
-        transition: 'all 0.8s ease',
-        opacity: hasInteracted ? 0 : 1,
-        visibility: hasInteracted ? 'hidden' : 'visible',
-        pointerEvents: 'none'
+        position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
+        zIndex: 5, textAlign: 'center', width: '90%',
+        transition: 'all 0.8s ease', opacity: hasInteracted ? 0 : 1,
+        visibility: hasInteracted ? 'hidden' : 'visible', pointerEvents: 'none'
       }}>
         <h1 style={{ 
-          fontSize: '60px', 
-          fontWeight: '700', 
-          color: '#000', 
-          marginBottom: '25px', 
-          lineHeight: '1.05',
-          letterSpacing: '-1.5px'
+          fontSize: isMobile ? '28px' : '60px', // Testo molto più piccolo su mobile
+          fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2',
         }}>
           What if A.I. started with a question,<br /> 
           being curious about the world?<br /> 
@@ -185,19 +147,14 @@ export default function HomePage() {
         </h1>
 
         <p style={{ 
-          fontSize: '24px', 
-          color: '#333', 
-          fontStyle: 'italic',
-          fontFamily: 'serif',
-          marginTop: '40px',
-          opacity: 0.8
+          fontSize: isMobile ? '16px' : '24px', 
+          color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px'
         }}>
           Tap and zoom in the map
         </p>
       </div>
 
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
-
     </main>
   );
 }
