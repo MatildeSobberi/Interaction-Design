@@ -2,12 +2,14 @@
 import React, { useState } from 'react';
 
 export default function Feedback() {
+  const [email, setEmail] = useState('');
   const [pensiero, setPensiero] = useState('');
   const [inviato, setInviato] = useState(false);
 
-  const handleInvia = () => {
-    if (pensiero.trim().length > 5) {
-      // Qui in futuro potremo collegarlo a una tabella "commenti" su Supabase
+  const handleInvia = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Qui in futuro collegheremo i dati (email + pensiero) a Supabase
+    if (email.includes('@') && pensiero.trim().length > 5) {
       setInviato(true);
     }
   };
@@ -39,19 +41,33 @@ export default function Feedback() {
 
       <section style={{ maxWidth: '600px', margin: '60px auto', textAlign: 'center' }}>
         {!inviato ? (
-          <>
+          <form onSubmit={handleInvia}>
             <h1 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '20px' }}>Cosa hai provato esplorando questa mappa?</h1>
             <p style={{ color: '#666', marginBottom: '40px', lineHeight: '1.6' }}>
-              Questo progetto nasce per osservare come l'uomo interagisce con una curiosità artificiale. 
-              Il tuo pensiero ci aiuta a capire se siamo riusciti a creare una connessione.
+              Lasciaci il tuo contatto e un pensiero sulla tua esperienza. 
+              Il tuo contributo ci aiuta a capire la connessione tra uomo e curiosità artificiale.
             </p>
             
+            <input 
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="La tua email"
+              style={{
+                width: '100%', padding: '15px 20px', borderRadius: '12px',
+                border: '1px solid #eee', marginBottom: '15px', fontSize: '16px',
+                outline: 'none', backgroundColor: '#fdfdfd'
+              }}
+            />
+
             <textarea 
+              required
               value={pensiero}
               onChange={(e) => setPensiero(e.target.value)}
               placeholder="Scrivi qui la tua esperienza..."
               style={{
-                width: '100%', height: '200px', padding: '20px', borderRadius: '15px',
+                width: '100%', height: '180px', padding: '20px', borderRadius: '15px',
                 border: '1px solid #eee', backgroundColor: '#fdfdfd', fontSize: '16px',
                 fontFamily: 'serif', fontStyle: 'italic', resize: 'none', outline: 'none',
                 boxShadow: '0 4px 10px rgba(0,0,0,0.02)'
@@ -59,21 +75,28 @@ export default function Feedback() {
             />
 
             <button 
-              onClick={handleInvia}
+              type="submit"
+              disabled={!email || pensiero.length < 5}
               style={{
                 marginTop: '30px', padding: '15px 40px', borderRadius: '30px',
                 backgroundColor: '#000', color: '#fff', border: 'none',
-                fontWeight: '700', cursor: 'pointer', opacity: pensiero.length > 5 ? 1 : 0.3,
+                fontWeight: '700', cursor: 'pointer', 
+                opacity: (email && pensiero.length > 5) ? 1 : 0.3,
                 transition: 'all 0.3s'
               }}>
               Invia il tuo pensiero
             </button>
-          </>
+          </form>
         ) : (
           <div style={{ padding: '40px' }}>
+            <div style={{ fontSize: '50px', marginBottom: '20px' }}>✉️</div>
             <h2 style={{ fontSize: '24px', fontWeight: '700' }}>Grazie per aver condiviso.</h2>
-            <p style={{ marginTop: '20px', color: '#666' }}>Il tuo contributo è stato registrato nel nostro archivio delle esperienze.</p>
-            <a href="/" style={{ display: 'inline-block', marginTop: '30px', color: '#000', fontWeight: '700' }}>Torna alla mappa</a>
+            <p style={{ marginTop: '20px', color: '#666' }}>
+              Abbiamo ricevuto il tuo messaggio all'indirizzo <strong>{email}</strong>.
+            </p>
+            <a href="/" style={{ display: 'inline-block', marginTop: '30px', color: '#000', fontWeight: '700', textDecoration: 'underline' }}>
+              Torna alla mappa
+            </a>
           </div>
         )}
       </section>
