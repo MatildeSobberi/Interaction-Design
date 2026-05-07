@@ -12,14 +12,17 @@ export default function HomePage() {
   const map = useRef<any>(null);
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
-  const [hasInteracted, setHasInteracted] = useState(false);
+  
+  // Impostiamo lo stato iniziale a TRUE per non mostrare nulla al caricamento
+  const [hasInteracted, setHasInteracted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // 1. USARE SESSION STORAGE: dura solo finché la scheda è aperta
-    const giaVistoInQuestaSessione = sessionStorage.getItem('hasInteracted');
-    if (giaVistoInQuestaSessione === 'true') {
-      setHasInteracted(true);
+    // 1. Controllo immediato della sessione
+    const giaVisto = sessionStorage.getItem('hasInteracted');
+    if (!giaVisto) {
+      // Solo se non è mai stato visto in questa sessione, allora mostriamo il titolo
+      setHasInteracted(false);
     }
 
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -46,7 +49,6 @@ export default function HomePage() {
 
     const handleFirstInteraction = () => {
       setHasInteracted(true);
-      // Salva nella sessione che l'utente ha interagito
       sessionStorage.setItem('hasInteracted', 'true');
     };
 
@@ -81,29 +83,31 @@ export default function HomePage() {
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {!hasInteracted && (
-        <>
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-            backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
-            backdropFilter: 'blur(2px)'
-          }} />
-          <div style={{
-            position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
-            zIndex: 5, textAlign: 'center', width: '90%', pointerEvents: 'none'
-          }}>
-            <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
-              What if A.I. started with a question,<br /> 
-              being curious about the world?<br /> 
-              But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
-            </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
-              Tap and zoom in the map
-            </p>
-          </div>
-        </>
-      )}
+      {/* Overlay e Titolo con opacità dinamica */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
+        transition: 'opacity 0.8s ease', 
+        opacity: hasInteracted ? 0 : 1,
+        visibility: hasInteracted ? 'hidden' : 'visible', 
+        backdropFilter: 'blur(2px)'
+      }}>
+        <div style={{
+          position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
+          textAlign: 'center', width: '90%'
+        }}>
+          <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
+            What if A.I. started with a question,<br /> 
+            being curious about the world?<br /> 
+            But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
+          </h1>
+          <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
+            Tap and zoom in the map
+          </p>
+        </div>
+      </div>
 
+      {/* NAVBAR */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
