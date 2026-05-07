@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation'; // Per leggere il parametro nell'URL
+import { useSearchParams } from 'next/navigation';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from './supabase';
@@ -17,10 +17,12 @@ function MapContent() {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Se nell'URL c'è ?interacted=true, nascondi subito il messaggio
+  // LOGICA PERSISTENTE: Controlla se l'utente ha già interagito in passato
   useEffect(() => {
-    if (searchParams.get('interacted') === 'true') {
+    const giaVisto = localStorage.getItem('hasInteracted');
+    if (giaVisto === 'true' || searchParams.get('interacted') === 'true') {
       setHasInteracted(true);
+      localStorage.setItem('hasInteracted', 'true');
     }
   }, [searchParams]);
 
@@ -49,6 +51,7 @@ function MapContent() {
 
     const handleFirstInteraction = () => {
       setHasInteracted(true);
+      localStorage.setItem('hasInteracted', 'true'); // Salva la scelta per sempre
       map.current.off('zoomstart', handleFirstInteraction);
       map.current.off('mousedown', handleFirstInteraction);
       map.current.off('touchstart', handleFirstInteraction);
@@ -109,7 +112,7 @@ function MapContent() {
         <a href="/about-us" style={navLinkStyle}>About Us</a>
         <a href="/about-you" style={navLinkStyle}>About You</a>
 
-        <a href="/?interacted=true" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
+        <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
             <line x1="9" y1="3" x2="9" y2="18" />
