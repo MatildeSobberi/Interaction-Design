@@ -13,18 +13,11 @@ export default function HomePage() {
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   
-  // Impostiamo lo stato iniziale a TRUE per non mostrare nulla al caricamento
-  const [hasInteracted, setHasInteracted] = useState(true);
+  // Rimuoviamo sessionStorage. Di default all'avvio (o refresh) è sempre FALSE.
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // 1. Controllo immediato della sessione
-    const giaVisto = sessionStorage.getItem('hasInteracted');
-    if (!giaVisto) {
-      // Solo se non è mai stato visto in questa sessione, allora mostriamo il titolo
-      setHasInteracted(false);
-    }
-
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -49,7 +42,7 @@ export default function HomePage() {
 
     const handleFirstInteraction = () => {
       setHasInteracted(true);
-      sessionStorage.setItem('hasInteracted', 'true');
+      // Non salviamo più nulla nel browser, così al refresh si resetta
     };
 
     map.current.on('zoomstart', handleFirstInteraction);
@@ -83,7 +76,7 @@ export default function HomePage() {
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {/* Overlay e Titolo con opacità dinamica */}
+      {/* Overlay e Titolo */}
       <div style={{
         position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
         backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
@@ -119,11 +112,14 @@ export default function HomePage() {
       }}>
         <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
+        
+        {/* Link centrale alla mappa */}
         <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" />
           </svg>
         </a>
+
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
