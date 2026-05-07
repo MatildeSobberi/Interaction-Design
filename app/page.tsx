@@ -14,15 +14,13 @@ export default function HomePage() {
   const [currentZoom, setCurrentZoom] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isCheckingMemory, setIsCheckingMemory] = useState(true);
 
   useEffect(() => {
-    // CONTROLLO MEMORIA: Se ha già interagito in questa sessione, non mostrare nulla
+    // 1. Controlla subito se l'utente ha già interagito in passato
     const giaVisto = localStorage.getItem('hasInteracted');
     if (giaVisto === 'true') {
       setHasInteracted(true);
     }
-    setIsCheckingMemory(false);
 
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -79,11 +77,10 @@ export default function HomePage() {
     });
   }, [punti, currentZoom, isMobile]);
 
-  if (isCheckingMemory) return <div ref={mapContainer} style={{ width: '100%', height: '100vh' }} />;
-
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
+      {/* Il titolo appare solo se hasInteracted è FALSO */}
       {!hasInteracted && (
         <>
           <div style={{
@@ -96,7 +93,8 @@ export default function HomePage() {
             zIndex: 5, textAlign: 'center', width: '90%', pointerEvents: 'none'
           }}>
             <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
-              What if A.I. started with a question,<br /> being curious about the world?<br /> 
+              What if A.I. started with a question,<br /> 
+              being curious about the world?<br /> 
               But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
             </h1>
             <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
@@ -106,6 +104,7 @@ export default function HomePage() {
         </>
       )}
 
+      {/* NAVBAR */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
@@ -126,7 +125,8 @@ export default function HomePage() {
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
 
-      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+      {/* MAPPA - Deve essere sempre fuori dai condizionali per caricarsi */}
+      <div ref={mapContainer} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
     </main>
   );
 }
