@@ -1,48 +1,15 @@
 "use client";
-
 import React, { useState } from 'react';
-import { supabase } from '../supabase'; // Assicurati che il percorso sia corretto
 
 export default function Feedback() {
-  const [parola, setParola] = useState('');
-  const [lat, setLat] = useState('');
-  const [lng, setLng] = useState('');
-  const [status, setStatus] = useState('');
+  const [pensiero, setPensiero] = useState('');
+  const [inviato, setInviato] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus('Inviando...');
-
-    const { error } = await supabase
-      .from('segnalazioni')
-      .insert([
-        { 
-          parola: parola, 
-          lat: parseFloat(lat), 
-          lng: parseFloat(lng),
-          frequenza: 1 
-        }
-      ]);
-
-    if (error) {
-      console.error(error);
-      setStatus('Errore durante l\'invio.');
-    } else {
-      setStatus('Grazie! La tua parola è stata aggiunta alla mappa.');
-      setParola('');
-      setLat('');
-      setLng('');
+  const handleInvia = () => {
+    if (pensiero.trim().length > 5) {
+      // Qui in futuro potremo collegarlo a una tabella "commenti" su Supabase
+      setInviato(true);
     }
-  };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '15px',
-    marginBottom: '20px',
-    borderRadius: '10px',
-    border: '1px solid #ddd',
-    fontFamily: 'var(--font-roboto), sans-serif',
-    fontSize: '16px'
   };
 
   return (
@@ -70,65 +37,45 @@ export default function Feedback() {
         </a>
       </nav>
 
-      <section style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '10px' }}>Lascia il tuo segno</h1>
-        <p style={{ color: '#666', marginBottom: '40px' }}>Aggiungi una parola alla curiosità dell'IA.</p>
+      <section style={{ maxWidth: '600px', margin: '60px auto', textAlign: 'center' }}>
+        {!inviato ? (
+          <>
+            <h1 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '20px' }}>Cosa hai provato esplorando questa mappa?</h1>
+            <p style={{ color: '#666', marginBottom: '40px', lineHeight: '1.6' }}>
+              Questo progetto nasce per osservare come l'uomo interagisce con una curiosità artificiale. 
+              Il tuo pensiero ci aiuta a capire se siamo riusciti a creare una connessione.
+            </p>
+            
+            <textarea 
+              value={pensiero}
+              onChange={(e) => setPensiero(e.target.value)}
+              placeholder="Scrivi qui la tua esperienza..."
+              style={{
+                width: '100%', height: '200px', padding: '20px', borderRadius: '15px',
+                border: '1px solid #eee', backgroundColor: '#fdfdfd', fontSize: '16px',
+                fontFamily: 'serif', fontStyle: 'italic', resize: 'none', outline: 'none',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.02)'
+              }}
+            />
 
-        <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
-          <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>Parola</label>
-          <input 
-            type="text" 
-            placeholder="Es: Silenzio" 
-            value={parola}
-            onChange={(e) => setParola(e.target.value)}
-            style={inputStyle} 
-            required 
-          />
-
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>Latitudine</label>
-              <input 
-                type="number" 
-                step="any"
-                placeholder="41.89" 
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                style={inputStyle} 
-                required 
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>Longitudine</label>
-              <input 
-                type="number" 
-                step="any"
-                placeholder="12.49" 
-                value={lng}
-                onChange={(e) => setLng(e.target.value)}
-                style={inputStyle} 
-                required 
-              />
-            </div>
+            <button 
+              onClick={handleInvia}
+              style={{
+                marginTop: '30px', padding: '15px 40px', borderRadius: '30px',
+                backgroundColor: '#000', color: '#fff', border: 'none',
+                fontWeight: '700', cursor: 'pointer', opacity: pensiero.length > 5 ? 1 : 0.3,
+                transition: 'all 0.3s'
+              }}>
+              Invia il tuo pensiero
+            </button>
+          </>
+        ) : (
+          <div style={{ padding: '40px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '700' }}>Grazie per aver condiviso.</h2>
+            <p style={{ marginTop: '20px', color: '#666' }}>Il tuo contributo è stato registrato nel nostro archivio delle esperienze.</p>
+            <a href="/" style={{ display: 'inline-block', marginTop: '30px', color: '#000', fontWeight: '700' }}>Torna alla mappa</a>
           </div>
-
-          <button type="submit" style={{
-            width: '100%',
-            padding: '15px',
-            backgroundColor: '#000',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '16px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            transition: 'opacity 0.2s'
-          }}>
-            Invia alla mappa
-          </button>
-        </form>
-
-        {status && <p style={{ marginTop: '20px', fontWeight: '500', color: status.includes('Errore') ? 'red' : 'green' }}>{status}</p>}
+        )}
       </section>
     </main>
   );
