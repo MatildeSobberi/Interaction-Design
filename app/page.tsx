@@ -1,29 +1,30 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation'; // Per leggere il parametro nell'URL
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from './supabase';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
-export default function HomePage() {
+function MapContent() {
+  const searchParams = useSearchParams();
   const mapContainer = useRef<any>(null);
   const map = useRef<any>(null);
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Per evitare il "flash" del titolo
 
+  // Se nell'URL c'è ?interacted=true, nascondi subito il messaggio
   useEffect(() => {
-    // 1. Controllo immediato della memoria
-    const giaVisto = localStorage.getItem('hasInteracted');
-    if (giaVisto === 'true') {
+    if (searchParams.get('interacted') === 'true') {
       setHasInteracted(true);
     }
-    setIsLoading(false); // Ora sappiamo se mostrare o no il titolo
+  }, [searchParams]);
 
+  useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -48,7 +49,9 @@ export default function HomePage() {
 
     const handleFirstInteraction = () => {
       setHasInteracted(true);
-      localStorage.setItem('hasInteracted', 'true');
+      map.current.off('zoomstart', handleFirstInteraction);
+      map.current.off('mousedown', handleFirstInteraction);
+      map.current.off('touchstart', handleFirstInteraction);
     };
 
     map.current.on('zoomstart', handleFirstInteraction);
@@ -84,38 +87,16 @@ export default function HomePage() {
     textTransform: 'uppercase' as const, letterSpacing: '1px', opacity: 0.6
   };
 
-  // Se stiamo ancora controllando la memoria, non renderizziamo nulla sopra la mappa
-  if (isLoading) return <div ref={mapContainer} style={{ width: '100%', height: '100vh' }} />;
-
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {/* Overlay e Titolo appaiono SOLO se non c'è stata interazione */}
-      {!hasInteracted && (
-        <>
-          <div style={{
-            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-            backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
-            backdropFilter: 'blur(2px)'
-          }} />
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
+        transition: 'opacity 1s ease', opacity: hasInteracted ? 0 : 1,
+        visibility: hasInteracted ? 'hidden' : 'visible', backdropFilter: 'blur(2px)'
+      }} />
 
-          <div style={{
-            position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
-            zIndex: 5, textAlign: 'center', width: '90%', pointerEvents: 'none'
-          }}>
-            <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
-              What if A.I. started with a question,<br /> 
-              being curious about the world?<br /> 
-              But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
-            </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
-              Tap and zoom in the map
-            </p>
-          </div>
-        </>
-      )}
-
-      {/* NAVBAR SEMPRE VISIBILE */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
@@ -128,7 +109,7 @@ export default function HomePage() {
         <a href="/about-us" style={navLinkStyle}>About Us</a>
         <a href="/about-you" style={navLinkStyle}>About You</a>
 
-        <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
+        <a href="/?interacted=true" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
             <line x1="9" y1="3" x2="9" y2="18" />
@@ -140,7 +121,31 @@ export default function HomePage() {
         <a href="/feedback" style={navLinkStyle}>Feedback</a>
       </nav>
 
+      <div style={{
+        position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
+        zIndex: 5, textAlign: 'center', width: '90%',
+        transition: 'all 0.8s ease', opacity: hasInteracted ? 0 : 1,
+        visibility: hasInteracted ? 'hidden' : 'visible', pointerEvents: 'none'
+      }}>
+        <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
+          What if A.I. started with a question,<br /> 
+          being curious about the world?<br /> 
+          But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
+        </h1>
+        <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
+          Tap and zoom in the map
+        </p>
+      </div>
+
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <MapContent />
+    </Suspense>
   );
 }
