@@ -1,61 +1,40 @@
 "use client";
-
 import React from 'react';
-import { usePathname } from 'next/navigation'; // Importante per l'evidenziazione
 
 export default function AboutUs() {
-  const pathname = usePathname();
-
-  const navItems = [
-    { label: 'About Us', href: '/about-us' },
-    { label: 'About You', href: '/about-you' },
-    { label: 'Gallery', href: '/gallery' },
-    { label: 'Feedback', href: '/feedback' }
-  ];
-
-  const getLinkStyle = (href: string) => ({
-    color: '#000',
-    textDecoration: 'none',
-    fontFamily: 'var(--font-roboto), sans-serif',
-    fontSize: '12px',
-    fontWeight: '700',
-    textTransform: 'uppercase' as const,
-    borderBottom: pathname === href ? '2px solid #000' : '2px solid transparent', // Evidenziatore
-    paddingBottom: '4px',
-    transition: 'all 0.3s ease',
-    opacity: pathname === href ? 1 : 0.5 // Più chiaro se non attivo
-  });
-
   return (
-    <main style={{ minHeight: '100vh', backgroundColor: '#f9f9f9', padding: '120px 20px' }}>
+    <main style={{ minHeight: '100vh', backgroundColor: '#f9f9f9', fontFamily: 'var(--font-roboto), sans-serif', padding: '120px 20px' }}>
       
-      {/* NAVBAR CON EVIDENZIAZIONE */}
+      {/* NAVBAR CON PALLINO SU ABOUT US */}
       <nav style={{ 
-        position: 'fixed', top: '25px', left: '30px', right: '30px', zIndex: 100,
-        padding: '12px 40px', borderRadius: '40px',
-        background: 'rgba(230, 230, 230, 0.9)', backdropFilter: 'blur(12px)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        border: '1px solid rgba(0,0,0,0.1)'
+        position: 'fixed', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 100,
+        padding: '12px 35px', borderRadius: '40px',
+        background: 'rgba(240, 240, 240, 0.8)', border: '1px solid rgba(0, 0, 0, 0.05)',
+        backdropFilter: 'blur(12px)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+        gap: '25px', width: 'fit-content'
       }}>
-        {/* Tasto Mappa per tornare Home */}
-        <a href="/" style={{ fontSize: '20px', textDecoration: 'none' }}>📍</a>
-        
-        <div style={{ flexGrow: 1, height: '1px', background: '#000', margin: '0 20px', opacity: 0.1 }}></div>
+        <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+          About Us
+          <div style={{ width: '4px', height: '4px', background: '#000', borderRadius: '50%' }} />
+        </a>
+        <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.4 }}>About You</a>
 
-        {navItems.map((item, index) => (
-          <React.Fragment key={item.label}>
-            <a href={item.href} style={getLinkStyle(item.href)}>{item.label}</a>
-            {index < navItems.length - 1 && (
-              <div style={{ flexGrow: 1, height: '1px', background: '#000', margin: '0 20px', opacity: 0.1 }}></div>
-            )}
-          </React.Fragment>
-        ))}
+        <a href="/" style={{ color: '#000', margin: '0 10px' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+            <line x1="9" y1="3" x2="9" y2="18" />
+            <line x1="15" y1="6" x2="15" y2="21" />
+          </svg>
+        </a>
+
+        <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.4 }}>Gallery</a>
+        <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.4 }}>Feedback</a>
       </nav>
 
-      <section style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'var(--font-roboto)' }}>
-        <h1 style={{ fontSize: '48px', fontWeight: '700' }}>About Us</h1>
-        <p style={{ marginTop: '20px', fontSize: '18px', lineHeight: '1.6' }}>
-          Il tuo testo descrittivo qui...
+      <section style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <h1 style={{ fontSize: '48px', fontWeight: '700', marginBottom: '40px' }}>About Us</h1>
+        <p style={{ fontSize: '18px', lineHeight: '1.6' }}>
+          Siamo un team che esplora la curiosità dell'intelligenza artificiale applicata alla geografia umana...
         </p>
       </section>
     </main>
