@@ -23,7 +23,6 @@ export default function HomePage() {
     if (!giaVisto) {
       setHasInteracted(false);
     }
-
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -60,89 +59,88 @@ export default function HomePage() {
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
   }, [isMobile, isClient]);
 
-useEffect(() => {
-  if (!map.current) return;
+  useEffect(() => {
+    if (!map.current) return;
 
-  // Pulizia marker vecchi
-  document.querySelectorAll('.custom-marker').forEach(m => m.remove());
+    // Puliamo i marker esistenti
+    document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-  // Logica di apparizione progressiva
-  punti.forEach((punto) => {
-    let deveApparire = false;
+    // Ordiniamo i punti per frequenza (quelli più importanti vengono creati per primi)
+    const puntiOrdinati = [...punti].sort((a, b) => b.frequenza - a.frequenza);
 
-    // 1. Zoom basso (4-7): Mostra solo le parole "Giganti" (frequenza alta, es. > 8)
-    if (currentZoom >= 4 && currentZoom < 7) {
-      if (punto.frequenza > 8) deveApparire = true;
-    }
-    // 2. Zoom medio (7-10): Mostra parole importanti (frequenza > 4)
-    else if (currentZoom >= 7 && currentZoom < 10) {
-      if (punto.frequenza > 4) deveApparire = true;
-    }
-    // 3. Zoom alto (10+): Mostra tutto
-    else if (currentZoom >= 10) {
-      deveApparire = true;
-    }
+    const markerRects: DOMRect[] = [];
 
-    if (deveApparire) {
+    puntiOrdinati.forEach((punto) => {
+      if (currentZoom < 3) return; // Non mostrare nulla se troppo lontano
+
       const el = document.createElement('div');
       el.className = 'custom-marker';
       el.innerText = punto.parola;
       
-      // ... qui mantieni tutto lo stile che hai già (background, padding, borderRadius, ecc.) ...
+      // STILE
       el.style.fontFamily = 'var(--font-roboto), sans-serif';
-      el.style.background = 'rgba(255, 255, 255, 0.7)';
+      el.style.background = 'rgba(255, 255, 255, 0.8)';
       el.style.padding = isMobile ? '4px 10px' : '8px 15px';
       el.style.borderRadius = '20px';
       el.style.color = '#000';
       el.style.fontWeight = 'bold';
       el.style.backdropFilter = 'blur(4px)';
       el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-      
-      const baseSize = isMobile ? 10 : 14;
-      el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
+      el.style.position = 'absolute';
+      el.style.whiteSpace = 'nowrap';
+      el.style.zIndex = String(punto.frequenza); // Più citata = più "in alto"
 
-      new mapboxgl.Marker(el)
-        .setLngLat([punto.lng, punto.lat])
-        .addTo(map.current);
-    }
-  });
-}, [punti, currentZoom, isMobile]);
+      const baseSize = isMobile ? 10 : 14;
+      el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.2 : 2.5))}px`;
+
+      // Aggiungiamo temporaneamente al body per calcolare le dimensioni reali
+      document.body.appendChild(el);
+      const rect = el.getBoundingClientRect();
+      document.body.removeChild(el);
+
+      // Calcoliamo la posizione sulla mappa per vedere se sbatte contro altri
+      const pos = map.current.project([punto.lng, punto.lat]);
+      const currentRect = {
+        left: pos.x - rect.width / 2,
+        top: pos.y - rect.height / 2,
+        right: pos.x + rect.width / 2,
+        bottom: pos.y + rect.height / 2
+      };
+
+      // Controllo collisione: se sbatte contro un marker già esistente (più importante), non lo mettiamo
+      const collisione = markerRects.some(r => {
+        return !(currentRect.right < r.left || 
+                 currentRect.left > r.right || 
+                 currentRect.bottom < r.top || 
+                 currentRect.top > r.bottom);
+      });
+
+      if (!collisione) {
+        new mapboxgl.Marker(el)
+          .setLngLat([punto.lng, punto.lat])
+          .addTo(map.current);
+        
+        // Aggiungiamo il rettangolo alla lista di quelli occupati
+        markerRects.push(currentRect as DOMRect);
+      }
+    });
+  }, [punti, currentZoom, isMobile]);
 
   if (!isClient) return <div style={{ backgroundColor: '#fff', width: '100vw', height: '100vh' }} />;
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
-      
       {!hasInteracted && (
         <div style={{
           position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
-          transition: 'opacity 0.8s ease', 
-          backdropFilter: 'blur(2px)'
+          backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 100, pointerEvents: 'none',
+          transition: 'opacity 0.8s ease', backdropFilter: 'blur(2px)'
         }}>
-          <div style={{
-            position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
-            textAlign: 'center', width: '95%' // Aumentata un po' la larghezza contenitore
-          }}>
-            <h1 style={{ 
-              fontSize: isMobile ? '28px' : '60px', // Leggermente ridotto per far stare le parole
-              fontWeight: '700', 
-              color: '#000', 
-              marginBottom: '15px', 
-              lineHeight: '1.2',
-              maxWidth: '1100px', // Allargato per forzare le 3 righe
-              margin: '0 auto',
-              whiteSpace: 'normal'
-            }}>
+          <div style={{ position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '95%' }}>
+            <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2', maxWidth: '1100px', margin: '0 auto' }}>
               Is A.I. ever going to be able to understand the value of human experience when travelling?
             </h1>
-            <p style={{ 
-              fontSize: isMobile ? '16px' : '22px', 
-              color: '#333', 
-              fontStyle: 'italic', 
-              fontFamily: 'serif', 
-              marginTop: '25px' 
-            }}>
+            <p style={{ fontSize: isMobile ? '16px' : '22px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '25px' }}>
               Tap and zoom in the map
             </p>
           </div>
@@ -160,13 +158,11 @@ useEffect(() => {
       }}>
         <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
-        
         <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" />
           </svg>
         </a>
-
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
