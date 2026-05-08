@@ -32,7 +32,7 @@ export default function HomePage() {
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) {
-        // LOGICA DI ACCOPPIAMENTO: Unisce parole uguali sommandone la frequenza
+        // RAGGRUPPAMENTO: Unisce parole uguali
         const raggruppati = data.reduce((acc: any[], curr: any) => {
           const esistente = acc.find(p => p.parola.toLowerCase() === curr.parola.toLowerCase());
           if (esistente) {
@@ -75,9 +75,11 @@ export default function HomePage() {
     const puntiOrdinati = [...punti].sort((a, b) => b.frequenza - a.frequenza);
 
     puntiOrdinati.forEach((punto) => {
-      // Evita parole senza coordinate o nel punto 0,0 (spesso errore di inserimento)
+      // Filtro coordinate errate
       if (!punto.lat || !punto.lng || (punto.lat === 0 && punto.lng === 0)) return;
-      if (currentZoom < 3) return;
+      
+      // --- MODIFICA QUI: Appaiono solo da zoom 5 in poi ---
+      if (currentZoom < 5) return; 
 
       const el = document.createElement('div');
       el.className = 'custom-marker';
@@ -93,9 +95,8 @@ export default function HomePage() {
       el.style.whiteSpace = 'nowrap';
       el.style.zIndex = String(Math.floor(punto.frequenza));
 
-      // Dimensione basata sulla frequenza totale (accoppiata)
       const baseSize = isMobile ? 12 : 16;
-      const extraSize = Math.min(punto.frequenza * 2.5, 40); // Cap a 40px extra per non esagerare
+      const extraSize = Math.min(punto.frequenza * 2.5, 40); 
       el.style.fontSize = `${baseSize + extraSize}px`;
 
       document.body.appendChild(el);
