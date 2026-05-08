@@ -31,7 +31,19 @@ export default function HomePage() {
     if (!isClient) return;
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
-      if (data) setPunti(data);
+      if (data) {
+        // LOGICA DI ACCOPPIAMENTO: Unisce parole uguali sommandone la frequenza
+        const raggruppati = data.reduce((acc: any[], curr: any) => {
+          const esistente = acc.find(p => p.parola.toLowerCase() === curr.parola.toLowerCase());
+          if (esistente) {
+            esistente.frequenza += (curr.frequenza || 1);
+          } else {
+            acc.push({ ...curr, frequenza: curr.frequenza || 1 });
+          }
+          return acc;
+        }, []);
+        setPunti(raggruppati);
+      }
     };
     caricaDati();
 
@@ -60,11 +72,11 @@ export default function HomePage() {
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
     const markerRects: any[] = [];
-
-    // Ordiniamo per frequenza per dare priorità visiva (z-index)
     const puntiOrdinati = [...punti].sort((a, b) => b.frequenza - a.frequenza);
 
     puntiOrdinati.forEach((punto) => {
+      // Evita parole senza coordinate o nel punto 0,0 (spesso errore di inserimento)
+      if (!punto.lat || !punto.lng || (punto.lat === 0 && punto.lng === 0)) return;
       if (currentZoom < 3) return;
 
       const el = document.createElement('div');
@@ -79,42 +91,38 @@ export default function HomePage() {
       el.style.backdropFilter = 'blur(4px)';
       el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
       el.style.whiteSpace = 'nowrap';
-      el.style.zIndex = String(punto.frequenza);
+      el.style.zIndex = String(Math.floor(punto.frequenza));
 
-      const baseSize = isMobile ? 10 : 14;
-      el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.2 : 2.5))}px`;
+      // Dimensione basata sulla frequenza totale (accoppiata)
+      const baseSize = isMobile ? 12 : 16;
+      const extraSize = Math.min(punto.frequenza * 2.5, 40); // Cap a 40px extra per non esagerare
+      el.style.fontSize = `${baseSize + extraSize}px`;
 
-      // Calcolo ingombro
       document.body.appendChild(el);
       const rect = el.getBoundingClientRect();
       document.body.removeChild(el);
 
-      // Posizione proiettata sullo schermo
       const pos = map.current.project([punto.lng, punto.lat]);
       let offsetY = 0;
       let collision = true;
-      let finalX = pos.x;
-      let finalY = pos.y;
+      let attempts = 0;
 
-      // Logica di "spostamento" se c'è collisione
-      while (collision) {
+      while (collision && attempts < 5) {
         const currentRect = {
-          left: finalX - rect.width / 2,
-          top: (finalY + offsetY) - rect.height / 2,
-          right: finalX + rect.width / 2,
-          bottom: (finalY + offsetY) + rect.height / 2
+          left: pos.x - rect.width / 2,
+          top: (pos.y + offsetY) - rect.height / 2,
+          right: pos.x + rect.width / 2,
+          bottom: (pos.y + offsetY) + rect.height / 2
         };
 
         const hasOverlap = markerRects.some(r => {
-          return !(currentRect.right < r.left || 
-                   currentRect.left > r.right || 
-                   currentRect.bottom < r.top || 
-                   currentRect.top > r.bottom);
+          return !(currentRect.right < r.left || currentRect.left > r.right || 
+                   currentRect.bottom < r.top || currentRect.top > r.bottom);
         });
 
         if (hasOverlap) {
-          // Se sbatte, sposta la parola in basso di un po' e riprova
-          offsetY += rect.height + 5; 
+          offsetY += rect.height + 5;
+          attempts++;
         } else {
           collision = false;
           markerRects.push(currentRect);
@@ -123,7 +131,7 @@ export default function HomePage() {
 
       new mapboxgl.Marker(el)
         .setLngLat([punto.lng, punto.lat])
-        .setOffset([0, offsetY]) // Applica lo spostamento calcolato
+        .setOffset([0, offsetY])
         .addTo(map.current);
     });
   }, [punti, currentZoom, isMobile]);
@@ -142,15 +150,13 @@ export default function HomePage() {
           </div>
         </div>
       )}
-
-      <nav style={{ position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, padding: '12px 35px', borderRadius: '40px', background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent', border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent', backdropFilter: hasInteracted ? 'blur(12px)' : 'none', transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? '15px' : '25px', width: 'fit-content' }}>
+      <nav style={{ position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, padding: '12px 35px', borderRadius: '40px', background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent', border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent', backdropFilter: hasInteracted ? 'blur(12px)' : 'none', transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? '15px' : '25px', width: 'fit-content' }}>
         <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
         <a href="/" style={{ color: '#000', margin: '0 10px' }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg></a>
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
-
       <div ref={mapContainer} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
     </main>
   );
