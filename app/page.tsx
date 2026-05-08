@@ -35,22 +35,7 @@ export default function HomePage() {
 
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
-      if (data) {
-        // RAGGRUPPAMENTO: Unisce parole identiche nello stesso punto sommandone la frequenza
-        const raggruppati = data.reduce((acc: any[], curr: any) => {
-          const esistente = acc.find(p => 
-            p.parola.toLowerCase() === curr.parola.toLowerCase() &&
-            p.lat === curr.lat && p.lng === curr.lng
-          );
-          if (esistente) {
-            esistente.frequenza = (esistente.frequenza || 1) + (curr.frequenza || 1);
-          } else {
-            acc.push({ ...curr, frequenza: curr.frequenza || 1 });
-          }
-          return acc;
-        }, []);
-        setPunti(raggruppati);
-      }
+      if (data) setPunti(data);
     };
     caricaDati();
 
@@ -80,65 +65,73 @@ export default function HomePage() {
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
     if (currentZoom < 4) return;
 
-    const occupiedRects: any[] = [];
-    // Ordiniamo per frequenza per dare priorità alle parole più grandi nel posizionamento
-    const puntiOrdinati = [...punti].sort((a, b) => (b.frequenza || 0) - (a.frequenza || 0));
-
-    puntiOrdinati.forEach((punto) => {
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      el.innerText = punto.parola;
-      el.style.fontFamily = 'var(--font-roboto), sans-serif';
-      el.style.background = 'rgba(255, 255, 255, 0.6)';
-      el.style.padding = isMobile ? '4px 10px' : '8px 15px';
-      el.style.borderRadius = '20px';
-      el.style.color = '#000';
-      const baseSize = isMobile ? 10 : 14;
-      el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
-      el.style.fontWeight = 'bold';
-      el.style.backdropFilter = 'blur(4px)';
-      el.style.whiteSpace = 'nowrap';
-      el.style.position = 'absolute';
-
-      // Calcoliamo la dimensione dell'elemento prima di aggiungerlo
-      document.body.appendChild(el);
-      const width = el.offsetWidth;
-      const height = el.offsetHeight;
-      document.body.removeChild(el);
-
-      const pos = map.current.project([punto.lng, punto.lat]);
-      let offsetY = 0;
-      let collision = true;
-
-      // Logica anti-sovrapposizione: sposta in basso se lo spazio è occupato
-      while (collision) {
-        const currentRect = {
-          left: pos.x - width / 2,
-          top: pos.y - height / 2 + offsetY,
-          right: pos.x + width / 2,
-          bottom: pos.y + height / 2 + offsetY
-        };
-
-        const overlaps = occupiedRects.some(r => !(
-          currentRect.right < r.left || 
-          currentRect.left > r.right || 
-          currentRect.bottom < r.top || 
-          currentRect.top > r.bottom
-        ));
-
-        if (overlaps) {
-          offsetY += height + 5; // Sposta di un'altezza + margine
-        } else {
-          occupiedRects.push(currentRect);
-          collision = false;
-        }
+    // Raggruppiamo i punti per coordinate esatte
+    const coordinateGroups = punti.reduce((groups, punto) => {
+      const key = `${punto.lng},${punto.lat}`;
+      if (!groups[key]) {
+        groups[key] = [];
       }
+      groups[key].push(punto);
+      return groups;
+    }, {});
 
-      new mapboxgl.Marker(el)
-        .setLngLat([punto.lng, punto.lat])
-        .setOffset([0, offsetY])
-        .addTo(map.current);
+    // Iteriamo su ogni gruppo di coordinate
+    Object.keys(coordinateGroups).forEach(key => {
+      const groupPunti = coordinateGroups[key];
+      const [lng, lat] = key.split(',').map(Number);
+      
+      // Ordiniamo le parole del gruppo per frequenza decrescente (opzionale)
+      groupPunti.sort((a, b) => b.frequenza - a.frequenza);
+
+      groupPunti.forEach((punto, index) => {
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        el.innerText = punto.parola;
+        el.style.fontFamily = 'var(--font-roboto), sans-serif';
+        el.style.background = 'rgba(255, 255, 255, 0.6)';
+        el.style.padding = isMobile ? '4px 10px' : '8px 15px';
+        el.style.borderRadius = '20px';
+        el.style.color = '#000';
+        const baseSize = isMobile ? 10 : 14;
+        el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
+        el.style.fontWeight = 'bold';
+        el.style.backdropFilter = 'blur(4px)';
+        el.style.position = 'absolute';
+        el.style.whiteSpace = 'nowrap';
+
+        // --- NUOVA LOGICA A RAGGIERA ---
+        
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (index > 0) { // Il primo marker rimane al centro
+          // Parametri della raggiera
+          const itemsPerCircle = 8; // Numero di parole per ogni cerchio concentrico
+          const baseRadius = isMobile ? 40 : 60; // Raggio del primo cerchio in pixel
+          const radiusIncrement = isMobile ? 25 : 35; // Quanto si allarga ogni cerchio successivo
+
+          // Calcoliamo in quale cerchio si trova la parola attuale
+          const circleIndex = Math.floor((index - 1) / itemsPerCircle);
+          
+          // Calcoliamo l'angolo per questa parola all'interno del suo cerchio
+          const indexInCircle = (index - 1) % itemsPerCircle;
+          const angle = (indexInCircle / itemsPerCircle) * 2 * Math.PI; // Angolo in radianti
+
+          // Calcoliamo il raggio attuale per questo cerchio
+          const currentRadius = baseRadius + (circleIndex * radiusIncrement);
+
+          // Trigonometria per convertire raggio e angolo in coordinate X e Y
+          offsetX = currentRadius * Math.cos(angle);
+          offsetY = currentRadius * Math.sin(angle);
+        }
+
+        new mapboxgl.Marker(el)
+          .setLngLat([lng, lat])
+          .setOffset([offsetX, offsetY]) // Applichiamo l'offset calcolato
+          .addTo(map.current);
+      });
     });
+
   }, [punti, currentZoom, isMobile]);
 
   if (!isClient) return <div style={{ backgroundColor: '#fff', width: '100vw', height: '100vh' }} />;
