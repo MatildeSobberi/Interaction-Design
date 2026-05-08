@@ -20,9 +20,7 @@ export default function HomePage() {
   useEffect(() => {
     setIsClient(true);
     const giaVisto = sessionStorage.getItem('visto');
-    if (!giaVisto) {
-      setHasInteracted(false);
-    }
+    if (!giaVisto) setHasInteracted(false);
     
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -30,8 +28,43 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Funzione per aggiornare la sorgente dei cerchi
+  const aggiornaCerchi = (dataPunti: any[]) => {
+    if (!map.current || !map.current.isStyleLoaded()) return;
+    
+    const source = map.current.getSource('punti-source');
+    const geojson = {
+      type: 'FeatureCollection',
+      features: dataPunti.map(p => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: {}
+      }))
+    };
+
+    if (source) {
+      source.setData(geojson);
+    } else {
+      map.current.addSource('punti-source', { type: 'geojson', data: geojson });
+      map.current.addLayer({
+        id: 'punti-circles',
+        type: 'circle',
+        source: 'punti-source',
+        paint: {
+          'circle-radius': 5,
+          'circle-color': '#000000',
+          'circle-opacity': 0.3,
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#ffffff'
+        },
+        maxzoom: 6.5 
+      });
+    }
+  };
+
   useEffect(() => {
     if (!isClient) return;
+    
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) {
@@ -50,11 +83,12 @@ export default function HomePage() {
           return acc;
         }, []);
         setPunti(raggruppati);
+        if (map.current) aggiornaCerchi(raggruppati);
       }
     };
-    caricaDati();
 
     if (map.current || !mapContainer.current) return;
+    
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
@@ -63,35 +97,8 @@ export default function HomePage() {
       projection: { name: 'mercator' }
     });
 
-    map.current.on('load', () => {
-      // Creiamo una sorgente dati per i pallini
-      map.current.addSource('punti-source', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: punti.map(p => ({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-            properties: {}
-          }))
-        }
-      });
-
-      // Aggiungiamo il layer dei cerchi (pallini segnaposto)
-      map.current.addLayer({
-        id: 'punti-circles',
-        type: 'circle',
-        source: 'punti-source',
-        paint: {
-          'circle-radius': 6,
-          'circle-color': '#000000',
-          'circle-opacity': 0.4,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
-        },
-        // Scompaiono esattamente quando arrivano le parole (zoom 6.5)
-        maxzoom: 6.5 
-      });
+    map.current.on('style.load', () => {
+      caricaDati();
     });
 
     const hideTitle = () => {
@@ -103,7 +110,7 @@ export default function HomePage() {
     map.current.on('zoom', () => {
       if (map.current) setCurrentZoom(map.current.getZoom());
     });
-  }, [isMobile, isClient, punti]); // Aggiunto punti come dipendenza per caricare i cerchi
+  }, [isMobile, isClient]);
 
   useEffect(() => {
     if (!map.current) return;
