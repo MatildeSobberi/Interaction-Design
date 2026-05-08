@@ -20,7 +20,10 @@ export default function HomePage() {
   useEffect(() => {
     setIsClient(true);
     const giaVisto = sessionStorage.getItem('visto');
-    if (!giaVisto) setHasInteracted(false);
+    if (!giaVisto) {
+      setHasInteracted(false);
+    }
+
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -29,30 +32,15 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isClient) return;
+
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
-      if (data) {
-        // RAGGRUPPAMENTO: Uniamo parole identiche e sommiamo la frequenza
-        const raggruppati = data.reduce((acc: any[], curr: any) => {
-          const parolaNormalizzata = curr.parola.trim().toLowerCase();
-          const esistente = acc.find(p => 
-            p.parola.toLowerCase() === parolaNormalizzata &&
-            Math.abs(p.lat - curr.lat) < 0.01 && 
-            Math.abs(p.lng - curr.lng) < 0.01
-          );
-          if (esistente) {
-            esistente.frequenzaTotal += (curr.frequenza || 1);
-          } else {
-            acc.push({ ...curr, parola: curr.parola.trim(), frequenzaTotal: curr.frequenza || 1 });
-          }
-          return acc;
-        }, []);
-        setPunti(raggruppati);
-      }
+      if (data) setPunti(data);
     };
     caricaDati();
 
     if (map.current || !mapContainer.current) return;
+    
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
@@ -61,8 +49,14 @@ export default function HomePage() {
       projection: { name: 'mercator' }
     });
 
-    const hideTitle = () => setHasInteracted(true);
-    map.current.on('movestart', hideTitle);
+    const handleFirstInteraction = () => {
+      setHasInteracted(true);
+      sessionStorage.setItem('visto', 'true');
+    };
+
+    map.current.on('zoomstart', handleFirstInteraction);
+    map.current.on('mousedown', handleFirstInteraction);
+    map.current.on('touchstart', handleFirstInteraction);
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
   }, [isMobile, isClient]);
 
@@ -71,49 +65,45 @@ export default function HomePage() {
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
     if (currentZoom < 4) return;
 
-    // Raggruppamento per coordinate per la raggiera
+    // Raggruppiamo i punti per coordinate esatte
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
-      if (!punto.lat || !punto.lng) return groups;
-      const key = `${punto.lng.toFixed(2)},${punto.lat.toFixed(2)}`;
-      if (!groups[key]) groups[key] = [];
+      const key = `${punto.lng},${punto.lat}`;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
       groups[key].push(punto);
       return groups;
-    }, {});
+    }, {}); // Inizializzato correttamente per evitare errori di build
 
     Object.keys(coordinateGroups).forEach(key => {
       const groupPunti = coordinateGroups[key];
       const [lng, lat] = key.split(',').map(Number);
       
-      groupPunti.sort((a: any, b: any) => b.frequenzaTotal - a.frequenzaTotal);
+      groupPunti.sort((a: any, b: any) => b.frequenza - a.frequenza);
 
       groupPunti.forEach((punto: any, index: number) => {
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.innerText = punto.parola;
-        
         el.style.fontFamily = 'var(--font-roboto), sans-serif';
-        el.style.background = 'rgba(255, 255, 255, 0.8)';
-        el.style.padding = isMobile ? '6px 12px' : '10px 20px';
-        el.style.borderRadius = '25px';
+        el.style.background = 'rgba(255, 255, 255, 0.6)';
+        el.style.padding = isMobile ? '4px 10px' : '8px 15px';
+        el.style.borderRadius = '20px';
         el.style.color = '#000';
+        const baseSize = isMobile ? 10 : 14;
+        el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
         el.style.fontWeight = 'bold';
-        el.style.backdropFilter = 'blur(5px)';
-        el.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
-        el.style.whiteSpace = 'nowrap';
+        el.style.backdropFilter = 'blur(4px)';
         el.style.position = 'absolute';
-
-        const baseSize = isMobile ? 12 : 16;
-        const extraSize = Math.min(punto.frequenzaTotal * 2.5, 40); 
-        el.style.fontSize = `${baseSize + extraSize}px`;
+        el.style.whiteSpace = 'nowrap';
 
         let offsetX = 0;
         let offsetY = 0;
 
         if (index > 0) {
-          const itemsPerCircle = 6; 
-          const baseRadius = isMobile ? 60 : 90; 
-          const radiusIncrement = isMobile ? 35 : 50; 
-          
+          const itemsPerCircle = 8;
+          const baseRadius = isMobile ? 40 : 60;
+          const radiusIncrement = isMobile ? 25 : 35;
           const circleIndex = Math.floor((index - 1) / itemsPerCircle);
           const indexInCircle = (index - 1) % itemsPerCircle;
           const angle = (indexInCircle / itemsPerCircle) * 2 * Math.PI;
@@ -138,22 +128,59 @@ export default function HomePage() {
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
       {!hasInteracted && (
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 100, pointerEvents: 'none', transition: 'opacity 0.8s ease', backdropFilter: 'blur(3px)' }}>
-          <div style={{ position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '95%' }}>
-            <h1 style={{ fontSize: isMobile ? '28px' : '62px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2', maxWidth: '1100px', margin: '0 auto' }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
+          transition: 'opacity 0.8s ease', 
+          backdropFilter: 'blur(2px)'
+        }}>
+          <div style={{
+            position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
+            textAlign: 'center', width: '95%' 
+          }}>
+            <h1 style={{ 
+              fontSize: isMobile ? '28px' : '60px', 
+              fontWeight: '700', 
+              color: '#000', 
+              marginBottom: '15px', 
+              lineHeight: '1.2',
+              maxWidth: '1100px', 
+              margin: '0 auto',
+              whiteSpace: 'normal'
+            }}>
               Is A.I. ever going to be able to understand the value of human experience when travelling?
             </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '22px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '25px' }}>Tap and zoom in the map</p>
+            <p style={{ 
+              fontSize: isMobile ? '16px' : '22px', 
+              color: '#333', 
+              fontStyle: 'italic', 
+              fontFamily: 'serif', 
+              marginTop: '25px' 
+            }}>
+              Tap and zoom in the map
+            </p>
           </div>
         </div>
       )}
 
-      <nav style={{ position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, padding: '12px 35px', borderRadius: '40px', background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent', border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent', backdropFilter: hasInteracted ? 'blur(12px)' : 'none', transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? '15px' : '25px', width: 'fit-content' }}>
+      <nav style={{ 
+        position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
+        padding: '12px 35px', borderRadius: '40px',
+        background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent',
+        border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent',
+        backdropFilter: hasInteracted ? 'blur(12px)' : 'none',
+        transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center',
+        gap: isMobile ? '15px' : '25px', width: 'fit-content', whiteSpace: 'nowrap'
+      }}>
         <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
-        <a href="/" style={{ color: '#000', margin: '0 10px' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
+        
+        <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" />
+          </svg>
         </a>
+
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
