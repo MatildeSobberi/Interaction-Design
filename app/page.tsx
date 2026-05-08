@@ -13,7 +13,7 @@ export default function HomePage() {
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   
-  // Stato iniziale: titolo nascosto per evitare il "lampo"
+  // Stati per la gestione del caricamento e dell'interazione
   const [hasInteracted, setHasInteracted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -21,7 +21,7 @@ export default function HomePage() {
   useEffect(() => {
     setIsClient(true);
     
-    // Controlla la sessione solo nel browser
+    // Controlla se l'utente ha già interagito in questa sessione
     const giaVisto = sessionStorage.getItem('visto');
     if (!giaVisto) {
       setHasInteracted(false);
@@ -34,6 +34,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!isClient) return;
+
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) setPunti(data);
@@ -55,6 +57,7 @@ export default function HomePage() {
       sessionStorage.setItem('visto', 'true');
     };
 
+    // Eventi che nascondono il titolo
     map.current.on('zoomstart', handleFirstInteraction);
     map.current.on('mousedown', handleFirstInteraction);
     map.current.on('touchstart', handleFirstInteraction);
@@ -83,51 +86,49 @@ export default function HomePage() {
     });
   }, [punti, currentZoom, isMobile]);
 
-  // Se non siamo ancora sul client, non renderizziamo nulla per evitare errori
+  // Se non siamo sul client, mostriamo uno sfondo bianco vuoto per evitare flash di errore
   if (!isClient) return <div style={{ backgroundColor: '#fff', width: '100vw', height: '100vh' }} />;
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {/* Titolo e Overlay */}
-      <div style={{
+      {/* Overlay e Titolo - Appare solo se non si è interagito */}
+      {!hasInteracted && (
         <div style={{
-        position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
-        transition: 'opacity 0.8s ease', 
-        opacity: hasInteracted ? 0 : 1,
-        visibility: hasInteracted ? 'hidden' : 'visible', 
-        backdropFilter: 'blur(2px)'
-      }}>
-        <div style={{
-          position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
-          textAlign: 'center', width: '90%'
+          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
+          transition: 'opacity 0.8s ease', 
+          backdropFilter: 'blur(2px)'
         }}>
-          {/* NUOVO TITOLO AGGIORNATO */}
-          <h1 style={{ 
-            fontSize: isMobile ? '28px' : '54px', 
-            fontWeight: '700', 
-            color: '#000', 
-            marginBottom: '15px', 
-            lineHeight: '1.2',
-            maxWidth: '900px',
-            margin: '0 auto'
+          <div style={{
+            position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
+            textAlign: 'center', width: '90%'
           }}>
-            Is A.I. ever going to be able to understand the value of human experience when travelling?
-          </h1>
-          
-          <p style={{ 
-            fontSize: isMobile ? '16px' : '22px', 
-            color: '#333', 
-            fontStyle: 'italic', 
-            fontFamily: 'serif', 
-            marginTop: '25px' 
-          }}>
-            Tap and zoom in the map
-          </p>
+            <h1 style={{ 
+              fontSize: isMobile ? '28px' : '54px', 
+              fontWeight: '700', 
+              color: '#000', 
+              marginBottom: '15px', 
+              lineHeight: '1.2',
+              maxWidth: '950px',
+              margin: '0 auto'
+            }}>
+              Is A.I. ever going to be able to understand the value of human experience when travelling?
+            </h1>
+            <p style={{ 
+              fontSize: isMobile ? '16px' : '22px', 
+              color: '#333', 
+              fontStyle: 'italic', 
+              fontFamily: 'serif', 
+              marginTop: '25px' 
+            }}>
+              Tap and zoom in the map
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
+      {/* NAVBAR */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
@@ -139,11 +140,13 @@ export default function HomePage() {
       }}>
         <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
+        
         <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" />
           </svg>
         </a>
+
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
