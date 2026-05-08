@@ -32,7 +32,6 @@ export default function HomePage() {
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) {
-        // RAGGRUPPAMENTO: Uniamo parole identiche e sommiamo la frequenza
         const raggruppati = data.reduce((acc: any[], curr: any) => {
           const parolaNormalizzata = curr.parola.trim().toLowerCase();
           const esistente = acc.find(p => 
@@ -72,9 +71,9 @@ export default function HomePage() {
     if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    if (currentZoom < 5.5) return;
+    // --- MODIFICA: Zoom impostato nuovamente a 6.5 ---
+    if (currentZoom < 6.5) return;
 
-    // Raggruppamento per coordinate per gestire la raggiera e la collisione
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
       if (!punto.lat || !punto.lng) return groups;
       const key = `${punto.lng.toFixed(2)},${punto.lat.toFixed(2)}`;
@@ -89,10 +88,8 @@ export default function HomePage() {
       
       groupPunti.sort((a: any, b: any) => b.frequenzaTotal - a.frequenzaTotal);
 
-      // --- NUOVA LOGICA COLLISION DETECTION ---
-      // Memorizziamo i rettangoli occupati (per pixel) per questo gruppo
       const occupiedRects: any[] = [];
-      const MARGIN_PIXELS = 10; // Lo spazio costante che vuoi tra i fumetti
+      const MARGIN_PIXELS = 10; 
 
       groupPunti.forEach((punto: any) => {
         const el = document.createElement('div');
@@ -114,7 +111,6 @@ export default function HomePage() {
         const extraSize = Math.min(punto.frequenzaTotal * 2.5, 40); 
         el.style.fontSize = `${baseSize + extraSize}px`;
 
-        // Calcoliamo la dimensione dell'elemento *prima* di posizionarlo
         document.body.appendChild(el);
         const markerWidth = el.offsetWidth;
         const markerHeight = el.offsetHeight;
@@ -126,7 +122,6 @@ export default function HomePage() {
         let offsetY = 0;
         let foundPosition = false;
 
-        // Se è la prima parola, sta al centro
         if (occupiedRects.length === 0) {
           occupiedRects.push({
             x1: pos.x - markerWidth / 2,
@@ -136,23 +131,17 @@ export default function HomePage() {
           });
           foundPosition = true;
         } else {
-          // Altrimenti, proviamo a raggiera finché non troviamo un posto libero
           const itemsPerCircle = 6; 
           const baseRadius = 85; 
           const radiusIncrement = isMobile ? 35 : 55; 
 
-          // Proviamo con raggi crescenti
           for (let rIdx = 0; rIdx < 5 && !foundPosition; rIdx++) {
             const currentRadius = baseRadius + (rIdx * radiusIncrement);
-            
-            // Proviamo angoli diversi
             for (let angleIdx = 0; angleIdx < itemsPerCircle && !foundPosition; angleIdx++) {
               const angle = ((angleIdx / itemsPerCircle) * 2 * Math.PI) + (rIdx * (Math.PI / 4));
-              
               const trialOffsetX = currentRadius * Math.cos(angle);
               const trialOffsetY = currentRadius * Math.sin(angle);
 
-              // Rettangolo di prova *inclusi i margini*
               const trialRect = {
                 x1: pos.x + trialOffsetX - markerWidth / 2 - MARGIN_PIXELS,
                 y1: pos.y + trialOffsetY - markerHeight / 2 - MARGIN_PIXELS,
@@ -160,7 +149,6 @@ export default function HomePage() {
                 y2: pos.y + trialOffsetY + markerHeight / 2 + MARGIN_PIXELS
               };
 
-              // Verifichiamo se collide con rettangoli occupati esistenti
               const collides = occupiedRects.some(r => !(
                 trialRect.x2 < r.x1 || 
                 trialRect.x1 > r.x2 || 
@@ -171,7 +159,6 @@ export default function HomePage() {
               if (!collides) {
                 offsetX = trialOffsetX;
                 offsetY = trialOffsetY;
-                // Aggiungiamo il rettangolo occupato *reale* (senza margini extra)
                 occupiedRects.push({
                   x1: pos.x + offsetX - markerWidth / 2,
                   y1: pos.y + offsetY - markerHeight / 2,
@@ -184,7 +171,6 @@ export default function HomePage() {
           }
         }
 
-        // Se dopo tutti i tentativi non troviamo posto, forziamo uno spostamento
         if (!foundPosition) {
            offsetX = 150 * (Math.random() - 0.5);
            offsetY = 150 * (Math.random() - 0.5);
@@ -203,7 +189,6 @@ export default function HomePage() {
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
-      
       {!hasInteracted && (
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 100, pointerEvents: 'none', transition: 'opacity 0.8s ease', backdropFilter: 'blur(3px)' }}>
           <div style={{ position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '95%' }}>
