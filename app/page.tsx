@@ -28,11 +28,12 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Funzione per aggiornare la sorgente dei cerchi
-  const aggiornaCerchi = (dataPunti: any[]) => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
-    
-    const source = map.current.getSource('punti-source');
+  const setupCircles = (mapInstance: any, dataPunti: any[]) => {
+    if (!mapInstance || !dataPunti.length) return;
+
+    const sourceId = 'punti-source';
+    const layerId = 'punti-circles';
+
     const geojson = {
       type: 'FeatureCollection',
       features: dataPunti.map(p => ({
@@ -42,22 +43,23 @@ export default function HomePage() {
       }))
     };
 
-    if (source) {
-      source.setData(geojson);
+    if (mapInstance.getSource(sourceId)) {
+      mapInstance.getSource(sourceId).setData(geojson);
     } else {
-      map.current.addSource('punti-source', { type: 'geojson', data: geojson });
-      map.current.addLayer({
-        id: 'punti-circles',
+      mapInstance.addSource(sourceId, { type: 'geojson', data: geojson });
+      mapInstance.addLayer({
+        id: layerId,
         type: 'circle',
-        source: 'punti-source',
+        source: sourceId,
         paint: {
-          'circle-radius': 5,
+          'circle-radius': isMobile ? 6 : 8,
           'circle-color': '#000000',
-          'circle-opacity': 0.3,
-          'circle-stroke-width': 1,
+          'circle-opacity': 0.5,
+          'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff'
         },
-        maxzoom: 6.5 
+        // Pallini visibili fino allo zoom 7
+        maxzoom: 7 
       });
     }
   };
@@ -83,7 +85,6 @@ export default function HomePage() {
           return acc;
         }, []);
         setPunti(raggruppati);
-        if (map.current) aggiornaCerchi(raggruppati);
       }
     };
 
@@ -97,8 +98,14 @@ export default function HomePage() {
       projection: { name: 'mercator' }
     });
 
-    map.current.on('style.load', () => {
+    map.current.on('load', () => {
       caricaDati();
+    });
+
+    map.current.on('sourcedata', (e: any) => {
+      if (e.isSourceLoaded && punti.length > 0) {
+        setupCircles(map.current, punti);
+      }
     });
 
     const hideTitle = () => {
@@ -113,10 +120,17 @@ export default function HomePage() {
   }, [isMobile, isClient]);
 
   useEffect(() => {
+    if (map.current && map.current.isStyleLoaded() && punti.length > 0) {
+      setupCircles(map.current, punti);
+    }
+  }, [punti]);
+
+  useEffect(() => {
     if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    if (currentZoom < 6.5) return;
+    // Parole visibili solo da zoom 7 in poi
+    if (currentZoom < 7) return;
 
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
       if (!punto.lat || !punto.lng) return groups;
