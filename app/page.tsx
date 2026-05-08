@@ -60,27 +60,53 @@ export default function HomePage() {
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
   }, [isMobile, isClient]);
 
-  useEffect(() => {
-    if (!map.current) return;
-    document.querySelectorAll('.custom-marker').forEach(m => m.remove());
-    if (currentZoom < 4) return;
+useEffect(() => {
+  if (!map.current) return;
 
-    punti.forEach((punto) => {
+  // Pulizia marker vecchi
+  document.querySelectorAll('.custom-marker').forEach(m => m.remove());
+
+  // Logica di apparizione progressiva
+  punti.forEach((punto) => {
+    let deveApparire = false;
+
+    // 1. Zoom basso (4-7): Mostra solo le parole "Giganti" (frequenza alta, es. > 8)
+    if (currentZoom >= 4 && currentZoom < 7) {
+      if (punto.frequenza > 8) deveApparire = true;
+    }
+    // 2. Zoom medio (7-10): Mostra parole importanti (frequenza > 4)
+    else if (currentZoom >= 7 && currentZoom < 10) {
+      if (punto.frequenza > 4) deveApparire = true;
+    }
+    // 3. Zoom alto (10+): Mostra tutto
+    else if (currentZoom >= 10) {
+      deveApparire = true;
+    }
+
+    if (deveApparire) {
       const el = document.createElement('div');
       el.className = 'custom-marker';
       el.innerText = punto.parola;
+      
+      // ... qui mantieni tutto lo stile che hai già (background, padding, borderRadius, ecc.) ...
       el.style.fontFamily = 'var(--font-roboto), sans-serif';
-      el.style.background = 'rgba(255, 255, 255, 0.6)';
+      el.style.background = 'rgba(255, 255, 255, 0.7)';
       el.style.padding = isMobile ? '4px 10px' : '8px 15px';
       el.style.borderRadius = '20px';
       el.style.color = '#000';
-      const baseSize = isMobile ? 10 : 14;
-      el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
       el.style.fontWeight = 'bold';
       el.style.backdropFilter = 'blur(4px)';
-      new mapboxgl.Marker(el).setLngLat([punto.lng, punto.lat]).addTo(map.current);
-    });
-  }, [punti, currentZoom, isMobile]);
+      el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+      
+      const baseSize = isMobile ? 10 : 14;
+      el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
+
+      new mapboxgl.Marker(el)
+        .setLngLat([punto.lng, punto.lat])
+        .addTo(map.current);
+    }
+  });
+}, [punti, currentZoom, isMobile]);
 
   if (!isClient) return <div style={{ backgroundColor: '#fff', width: '100vw', height: '100vh' }} />;
 
