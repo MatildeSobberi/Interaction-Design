@@ -71,7 +71,8 @@ export default function HomePage() {
     if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    if (currentZoom < 8) return;
+    // --- MODIFICA 1: Appaiono prima (Zoom 6.5) ---
+    if (currentZoom < 6.5) return;
 
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
       if (!punto.lat || !punto.lng) return groups;
@@ -112,15 +113,13 @@ export default function HomePage() {
 
         if (index > 0) {
           const itemsPerCircle = 6; 
-          // --- DISTANZA FISSA ---
-          // Aumentiamo il raggio base e aggiungiamo un margine fisso
-          const baseRadius = isMobile ? 80 : 120; 
-          const radiusIncrement = isMobile ? 40 : 70; 
+          // --- MODIFICA 2: Raggiera più compatta ---
+          const baseRadius = isMobile ? 65 : 85; 
+          const radiusIncrement = isMobile ? 35 : 55; 
           
           const circleIndex = Math.floor((index - 1) / itemsPerCircle);
           const indexInCircle = (index - 1) % itemsPerCircle;
           
-          // Ruotiamo leggermente ogni cerchio per non allineare tutto a griglia
           const rotationOffset = circleIndex * (Math.PI / 4);
           const angle = ((indexInCircle / itemsPerCircle) * 2 * Math.PI) + rotationOffset;
           
