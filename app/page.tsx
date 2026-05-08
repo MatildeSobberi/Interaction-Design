@@ -32,18 +32,18 @@ export default function HomePage() {
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) {
-        // --- LOGICA 1 & 2: Raggruppamento e Grandezza ---
-        // Uniamo parole uguali nella stessa zona e sommiamo la frequenza
+        // RAGGRUPPAMENTO: Uniamo parole identiche e sommiamo la frequenza
         const raggruppati = data.reduce((acc: any[], curr: any) => {
+          const parolaNormalizzata = curr.parola.trim().toLowerCase();
           const esistente = acc.find(p => 
-            p.parola.toLowerCase() === curr.parola.toLowerCase() &&
-            Math.abs(p.lat - curr.lat) < 0.01 && // Raggruppa se sono molto vicini
+            p.parola.toLowerCase() === parolaNormalizzata &&
+            Math.abs(p.lat - curr.lat) < 0.01 && 
             Math.abs(p.lng - curr.lng) < 0.01
           );
           if (esistente) {
-            esistente.frequenzaTotal = (esistente.frequenzaTotal || existente.frequenza || 1) + (curr.frequenza || 1);
+            esistente.frequenzaTotal += (curr.frequenza || 1);
           } else {
-            acc.push({ ...curr, frequenzaTotal: curr.frequenza || 1 });
+            acc.push({ ...curr, parola: curr.parola.trim(), frequenzaTotal: curr.frequenza || 1 });
           }
           return acc;
         }, []);
@@ -71,8 +71,7 @@ export default function HomePage() {
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
     if (currentZoom < 4) return;
 
-    // --- LOGICA 3: Raggruppamento Geografico per Raggiera ---
-    // Raggruppiamo i punti unici per coordinate
+    // Raggruppamento per coordinate per la raggiera
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
       if (!punto.lat || !punto.lng) return groups;
       const key = `${punto.lng.toFixed(2)},${punto.lat.toFixed(2)}`;
@@ -85,7 +84,6 @@ export default function HomePage() {
       const groupPunti = coordinateGroups[key];
       const [lng, lat] = key.split(',').map(Number);
       
-      // Ordiniamo per frequenza totale per posizionare le più importanti
       groupPunti.sort((a: any, b: any) => b.frequenzaTotal - a.frequenzaTotal);
 
       groupPunti.forEach((punto: any, index: number) => {
@@ -93,7 +91,6 @@ export default function HomePage() {
         el.className = 'custom-marker';
         el.innerText = punto.parola;
         
-        // --- LOGICA 4: Stile Originale con Rettangolo ---
         el.style.fontFamily = 'var(--font-roboto), sans-serif';
         el.style.background = 'rgba(255, 255, 255, 0.8)';
         el.style.padding = isMobile ? '6px 12px' : '10px 20px';
@@ -105,38 +102,30 @@ export default function HomePage() {
         el.style.whiteSpace = 'nowrap';
         el.style.position = 'absolute';
 
-        // --- LOGICA 2: Grandezza basata su frequenza aggregata ---
         const baseSize = isMobile ? 12 : 16;
-        // La grandezza cresce con il numero di citazioni totali (frequenzaTotal)
-        const extraSize = Math.min(punto.frequenzaTotal * 2, 35); 
+        const extraSize = Math.min(punto.frequenzaTotal * 2.5, 40); 
         el.style.fontSize = `${baseSize + extraSize}px`;
 
-        // --- LOGICA 3: Posizionamento a Raggiera (come immagine 10) ---
         let offsetX = 0;
         let offsetY = 0;
 
-        if (index > 0) { // Il primo marker del gruppo sta al centro
-          // Numero di parole per ogni "cerchio" concentrico
+        if (index > 0) {
           const itemsPerCircle = 6; 
-          // Raggio del primo cerchio (distanza dal centro)
-          const baseRadius = isMobile ? 50 : 80; 
-          // Quanto si allontana ogni cerchio successivo
-          const radiusIncrement = isMobile ? 30 : 45; 
+          const baseRadius = isMobile ? 60 : 90; 
+          const radiusIncrement = isMobile ? 35 : 50; 
           
           const circleIndex = Math.floor((index - 1) / itemsPerCircle);
           const indexInCircle = (index - 1) % itemsPerCircle;
-          // Calcolo angolo trigonometrico
           const angle = (indexInCircle / itemsPerCircle) * 2 * Math.PI;
           const currentRadius = baseRadius + (circleIndex * radiusIncrement);
 
-          // Conversione in offset pixel X e Y
           offsetX = currentRadius * Math.cos(angle);
           offsetY = currentRadius * Math.sin(angle);
         }
 
         new mapboxgl.Marker(el)
-          .setLngLat([punto.lng, punto.lat])
-          .setOffset([offsetX, offsetY]) // Applica la raggiera
+          .setLngLat([lng, lat])
+          .setOffset([offsetX, offsetY])
           .addTo(map.current);
       });
     });
