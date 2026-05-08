@@ -71,8 +71,8 @@ export default function HomePage() {
     if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    // --- MODIFICA 1: Zoom abbassato a 4 ---
-    if (currentZoom < 4) return;
+    // --- MODIFICA: Zoom impostato a 5.5 ---
+    if (currentZoom < 5.5) return;
 
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
       if (!punto.lat || !punto.lng) return groups;
@@ -113,8 +113,7 @@ export default function HomePage() {
 
         if (index > 0) {
           const itemsPerCircle = 6; 
-          // --- MODIFICA 2: Distanza fissa impostata a 100 ---
-          const baseRadius = 100; 
+          const baseRadius = 100; // Mantenuta distanza fissa 100
           const radiusIncrement = isMobile ? 40 : 60; 
           
           const circleIndex = Math.floor((index - 1) / itemsPerCircle);
