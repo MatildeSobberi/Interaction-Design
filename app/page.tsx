@@ -13,14 +13,19 @@ export default function HomePage() {
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   
-  const [hasInteracted, setHasInteracted] = useState(true);
+  // Inizializziamo a true per evitare flash del titolo se già visto
+  const [hasInteracted, setHasInteracted] = useState(true); 
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+    // Controlliamo SUBITO se l'utente ha già visto il titolo
     const giaVisto = sessionStorage.getItem('visto');
-    if (!giaVisto) setHasInteracted(false);
+    if (!giaVisto) {
+      setHasInteracted(false);
+    }
+    
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -60,7 +65,12 @@ export default function HomePage() {
       projection: { name: 'mercator' }
     });
 
-    const hideTitle = () => setHasInteracted(true);
+    const hideTitle = () => {
+      setHasInteracted(true);
+      sessionStorage.setItem('visto', 'true');
+    };
+
+    // Nascondi se l'utente muove o interagisce
     map.current.on('movestart', hideTitle);
     map.current.on('zoom', () => {
       if (map.current) setCurrentZoom(map.current.getZoom());
@@ -84,7 +94,6 @@ export default function HomePage() {
     Object.keys(coordinateGroups).forEach(key => {
       const groupPunti = coordinateGroups[key];
       const [lng, lat] = key.split(',').map(Number);
-      
       groupPunti.sort((a: any, b: any) => b.frequenzaTotal - a.frequenzaTotal);
 
       const occupiedRects: any[] = [];
@@ -94,10 +103,9 @@ export default function HomePage() {
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.innerText = punto.parola;
-        
         el.style.fontFamily = 'var(--font-roboto), sans-serif';
         el.style.background = 'rgba(255, 255, 255, 0.85)';
-        el.style.padding = isMobile ? '4px 10px' : '8px 16px'; // Padding leggermente ridotto
+        el.style.padding = isMobile ? '4px 10px' : '8px 16px';
         el.style.borderRadius = '25px';
         el.style.color = '#000';
         el.style.fontWeight = 'bold';
@@ -106,9 +114,8 @@ export default function HomePage() {
         el.style.whiteSpace = 'nowrap';
         el.style.position = 'absolute';
 
-        // --- MODIFICA: Dimensioni font ridotte ---
-        const baseSize = isMobile ? 10 : 13; // Prima era 12 : 16
-        const extraSize = Math.min(punto.frequenzaTotal * 2, 30); // Moltiplicatore ridotto da 2.5 a 2
+        const baseSize = isMobile ? 10 : 13;
+        const extraSize = Math.min(punto.frequenzaTotal * 2, 30);
         el.style.fontSize = `${baseSize + extraSize}px`;
 
         document.body.appendChild(el);
@@ -117,18 +124,12 @@ export default function HomePage() {
         document.body.removeChild(el);
 
         const pos = map.current.project([lng, lat]);
-        
         let offsetX = 0;
         let offsetY = 0;
         let foundPosition = false;
 
         if (occupiedRects.length === 0) {
-          occupiedRects.push({
-            x1: pos.x - markerWidth / 2,
-            y1: pos.y - markerHeight / 2,
-            x2: pos.x + markerWidth / 2,
-            y2: pos.y + markerHeight / 2
-          });
+          occupiedRects.push({ x1: pos.x - markerWidth / 2, y1: pos.y - markerHeight / 2, x2: pos.x + markerWidth / 2, y2: pos.y + markerHeight / 2 });
           foundPosition = true;
         } else {
           const itemsPerCircle = 6; 
@@ -141,48 +142,20 @@ export default function HomePage() {
               const angle = ((angleIdx / itemsPerCircle) * 2 * Math.PI) + (rIdx * (Math.PI / 4));
               const trialOffsetX = currentRadius * Math.cos(angle);
               const trialOffsetY = currentRadius * Math.sin(angle);
-
-              const trialRect = {
-                x1: pos.x + trialOffsetX - markerWidth / 2 - MARGIN_PIXELS,
-                y1: pos.y + trialOffsetY - markerHeight / 2 - MARGIN_PIXELS,
-                x2: pos.x + trialOffsetX + markerWidth / 2 + MARGIN_PIXELS,
-                y2: pos.y + trialOffsetY + markerHeight / 2 + MARGIN_PIXELS
-              };
-
-              const collides = occupiedRects.some(r => !(
-                trialRect.x2 < r.x1 || 
-                trialRect.x1 > r.x2 || 
-                trialRect.y2 < r.y1 || 
-                trialRect.y1 > r.y2
-              ));
-
+              const trialRect = { x1: pos.x + trialOffsetX - markerWidth / 2 - MARGIN_PIXELS, y1: pos.y + trialOffsetY - markerHeight / 2 - MARGIN_PIXELS, x2: pos.x + trialOffsetX + markerWidth / 2 + MARGIN_PIXELS, y2: pos.y + trialOffsetY + markerHeight / 2 + MARGIN_PIXELS };
+              const collides = occupiedRects.some(r => !(trialRect.x2 < r.x1 || trialRect.x1 > r.x2 || trialRect.y2 < r.y1 || trialRect.y1 > r.y2));
               if (!collides) {
-                offsetX = trialOffsetX;
-                offsetY = trialOffsetY;
-                occupiedRects.push({
-                  x1: pos.x + offsetX - markerWidth / 2,
-                  y1: pos.y + offsetY - markerHeight / 2,
-                  x2: pos.x + offsetX + markerWidth / 2,
-                  y2: pos.y + offsetY + markerHeight / 2
-                });
+                offsetX = trialOffsetX; offsetY = trialOffsetY;
+                occupiedRects.push({ x1: pos.x + offsetX - markerWidth / 2, y1: pos.y + offsetY - markerHeight / 2, x2: pos.x + offsetX + markerWidth / 2, y2: pos.y + offsetY + markerHeight / 2 });
                 foundPosition = true;
               }
             }
           }
         }
-
-        if (!foundPosition) {
-           offsetX = 150 * (Math.random() - 0.5);
-           offsetY = 150 * (Math.random() - 0.5);
-        }
-
-        new mapboxgl.Marker(el)
-          .setLngLat([lng, lat])
-          .setOffset([offsetX, offsetY])
-          .addTo(map.current);
+        if (!foundPosition) { offsetX = 150 * (Math.random() - 0.5); offsetY = 150 * (Math.random() - 0.5); }
+        new mapboxgl.Marker(el).setLngLat([lng, lat]).setOffset([offsetX, offsetY]).addTo(map.current);
       });
     });
-
   }, [punti, currentZoom, isMobile]);
 
   if (!isClient) return null;
