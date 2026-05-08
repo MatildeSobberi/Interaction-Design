@@ -35,7 +35,22 @@ export default function HomePage() {
 
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
-      if (data) setPunti(data);
+      if (data) {
+        // RAGGRUPPAMENTO: Unisce parole identiche nello stesso punto sommandone la frequenza
+        const raggruppati = data.reduce((acc: any[], curr: any) => {
+          const esistente = acc.find(p => 
+            p.parola.toLowerCase() === curr.parola.toLowerCase() &&
+            p.lat === curr.lat && p.lng === curr.lng
+          );
+          if (esistente) {
+            esistente.frequenza = (esistente.frequenza || 1) + (curr.frequenza || 1);
+          } else {
+            acc.push({ ...curr, frequenza: curr.frequenza || 1 });
+          }
+          return acc;
+        }, []);
+        setPunti(raggruppati);
+      }
     };
     caricaDati();
 
@@ -65,7 +80,11 @@ export default function HomePage() {
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
     if (currentZoom < 4) return;
 
-    punti.forEach((punto) => {
+    const occupiedRects: any[] = [];
+    // Ordiniamo per frequenza per dare priorità alle parole più grandi nel posizionamento
+    const puntiOrdinati = [...punti].sort((a, b) => (b.frequenza || 0) - (a.frequenza || 0));
+
+    puntiOrdinati.forEach((punto) => {
       const el = document.createElement('div');
       el.className = 'custom-marker';
       el.innerText = punto.parola;
@@ -78,7 +97,47 @@ export default function HomePage() {
       el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.5 : 3))}px`;
       el.style.fontWeight = 'bold';
       el.style.backdropFilter = 'blur(4px)';
-      new mapboxgl.Marker(el).setLngLat([punto.lng, punto.lat]).addTo(map.current);
+      el.style.whiteSpace = 'nowrap';
+      el.style.position = 'absolute';
+
+      // Calcoliamo la dimensione dell'elemento prima di aggiungerlo
+      document.body.appendChild(el);
+      const width = el.offsetWidth;
+      const height = el.offsetHeight;
+      document.body.removeChild(el);
+
+      const pos = map.current.project([punto.lng, punto.lat]);
+      let offsetY = 0;
+      let collision = true;
+
+      // Logica anti-sovrapposizione: sposta in basso se lo spazio è occupato
+      while (collision) {
+        const currentRect = {
+          left: pos.x - width / 2,
+          top: pos.y - height / 2 + offsetY,
+          right: pos.x + width / 2,
+          bottom: pos.y + height / 2 + offsetY
+        };
+
+        const overlaps = occupiedRects.some(r => !(
+          currentRect.right < r.left || 
+          currentRect.left > r.right || 
+          currentRect.bottom < r.top || 
+          currentRect.top > r.bottom
+        ));
+
+        if (overlaps) {
+          offsetY += height + 5; // Sposta di un'altezza + margine
+        } else {
+          occupiedRects.push(currentRect);
+          collision = false;
+        }
+      }
+
+      new mapboxgl.Marker(el)
+        .setLngLat([punto.lng, punto.lat])
+        .setOffset([0, offsetY])
+        .addTo(map.current);
     });
   }, [punti, currentZoom, isMobile]);
 
@@ -96,15 +155,15 @@ export default function HomePage() {
         }}>
           <div style={{
             position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
-            textAlign: 'center', width: '95%' // Aumentata un po' la larghezza contenitore
+            textAlign: 'center', width: '95%' 
           }}>
             <h1 style={{ 
-              fontSize: isMobile ? '28px' : '60px', // Leggermente ridotto per far stare le parole
+              fontSize: isMobile ? '28px' : '60px', 
               fontWeight: '700', 
               color: '#000', 
               marginBottom: '15px', 
               lineHeight: '1.2',
-              maxWidth: '1100px', // Allargato per forzare le 3 righe
+              maxWidth: '1100px', 
               margin: '0 auto',
               whiteSpace: 'normal'
             }}>
