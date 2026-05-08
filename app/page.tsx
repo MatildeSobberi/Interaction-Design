@@ -13,14 +13,12 @@ export default function HomePage() {
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   
-  // Inizializziamo a true per evitare flash del titolo se già visto
   const [hasInteracted, setHasInteracted] = useState(true); 
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    // Controlliamo SUBITO se l'utente ha già visto il titolo
     const giaVisto = sessionStorage.getItem('visto');
     if (!giaVisto) {
       setHasInteracted(false);
@@ -65,17 +63,47 @@ export default function HomePage() {
       projection: { name: 'mercator' }
     });
 
+    map.current.on('load', () => {
+      // Creiamo una sorgente dati per i pallini
+      map.current.addSource('punti-source', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: punti.map(p => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+            properties: {}
+          }))
+        }
+      });
+
+      // Aggiungiamo il layer dei cerchi (pallini segnaposto)
+      map.current.addLayer({
+        id: 'punti-circles',
+        type: 'circle',
+        source: 'punti-source',
+        paint: {
+          'circle-radius': 6,
+          'circle-color': '#000000',
+          'circle-opacity': 0.4,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        },
+        // Scompaiono esattamente quando arrivano le parole (zoom 6.5)
+        maxzoom: 6.5 
+      });
+    });
+
     const hideTitle = () => {
       setHasInteracted(true);
       sessionStorage.setItem('visto', 'true');
     };
 
-    // Nascondi se l'utente muove o interagisce
     map.current.on('movestart', hideTitle);
     map.current.on('zoom', () => {
       if (map.current) setCurrentZoom(map.current.getZoom());
     });
-  }, [isMobile, isClient]);
+  }, [isMobile, isClient, punti]); // Aggiunto punti come dipendenza per caricare i cerchi
 
   useEffect(() => {
     if (!map.current) return;
@@ -124,18 +152,13 @@ export default function HomePage() {
         document.body.removeChild(el);
 
         const pos = map.current.project([lng, lat]);
-        let offsetX = 0;
-        let offsetY = 0;
-        let foundPosition = false;
+        let offsetX = 0; let offsetY = 0; let foundPosition = false;
 
         if (occupiedRects.length === 0) {
           occupiedRects.push({ x1: pos.x - markerWidth / 2, y1: pos.y - markerHeight / 2, x2: pos.x + markerWidth / 2, y2: pos.y + markerHeight / 2 });
           foundPosition = true;
         } else {
-          const itemsPerCircle = 6; 
-          const baseRadius = 85; 
-          const radiusIncrement = isMobile ? 35 : 55; 
-
+          const itemsPerCircle = 6; const baseRadius = 85; const radiusIncrement = isMobile ? 35 : 55; 
           for (let rIdx = 0; rIdx < 5 && !foundPosition; rIdx++) {
             const currentRadius = baseRadius + (rIdx * radiusIncrement);
             for (let angleIdx = 0; angleIdx < itemsPerCircle && !foundPosition; angleIdx++) {
