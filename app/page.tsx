@@ -96,16 +96,17 @@ export default function HomePage() {
         }}>
           <div style={{
             position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
-            textAlign: 'center', width: '90%'
+            textAlign: 'center', width: '95%' // Aumentata un po' la larghezza contenitore
           }}>
             <h1 style={{ 
-              fontSize: isMobile ? '28px' : '62px', 
+              fontSize: isMobile ? '28px' : '60px', // Leggermente ridotto per far stare le parole
               fontWeight: '700', 
               color: '#000', 
               marginBottom: '15px', 
               lineHeight: '1.2',
-              maxWidth: '900px',
-              margin: '0 auto'
+              maxWidth: '1100px', // Allargato per forzare le 3 righe
+              margin: '0 auto',
+              whiteSpace: 'normal'
             }}>
               Is A.I. ever going to be able to understand the value of human experience when travelling?
             </h1>
