@@ -32,6 +32,7 @@ export default function HomePage() {
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) {
+        // RAGGRUPPAMENTO: Uniamo parole identiche e sommiamo la frequenza
         const raggruppati = data.reduce((acc: any[], curr: any) => {
           const parolaNormalizzata = curr.parola.trim().toLowerCase();
           const esistente = acc.find(p => 
@@ -71,9 +72,9 @@ export default function HomePage() {
     if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    // --- MODIFICA: Zoom impostato a 5.5 ---
     if (currentZoom < 5.5) return;
 
+    // Raggruppamento per coordinate per gestire la raggiera e la collisione
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
       if (!punto.lat || !punto.lng) return groups;
       const key = `${punto.lng.toFixed(2)},${punto.lat.toFixed(2)}`;
@@ -88,7 +89,12 @@ export default function HomePage() {
       
       groupPunti.sort((a: any, b: any) => b.frequenzaTotal - a.frequenzaTotal);
 
-      groupPunti.forEach((punto: any, index: number) => {
+      // --- NUOVA LOGICA COLLISION DETECTION ---
+      // Memorizziamo i rettangoli occupati (per pixel) per questo gruppo
+      const occupiedRects: any[] = [];
+      const MARGIN_PIXELS = 10; // Lo spazio costante che vuoi tra i fumetti
+
+      groupPunti.forEach((punto: any) => {
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.innerText = punto.parola;
@@ -108,24 +114,80 @@ export default function HomePage() {
         const extraSize = Math.min(punto.frequenzaTotal * 2.5, 40); 
         el.style.fontSize = `${baseSize + extraSize}px`;
 
+        // Calcoliamo la dimensione dell'elemento *prima* di posizionarlo
+        document.body.appendChild(el);
+        const markerWidth = el.offsetWidth;
+        const markerHeight = el.offsetHeight;
+        document.body.removeChild(el);
+
+        const pos = map.current.project([lng, lat]);
+        
         let offsetX = 0;
         let offsetY = 0;
+        let foundPosition = false;
 
-        if (index > 0) {
+        // Se è la prima parola, sta al centro
+        if (occupiedRects.length === 0) {
+          occupiedRects.push({
+            x1: pos.x - markerWidth / 2,
+            y1: pos.y - markerHeight / 2,
+            x2: pos.x + markerWidth / 2,
+            y2: pos.y + markerHeight / 2
+          });
+          foundPosition = true;
+        } else {
+          // Altrimenti, proviamo a raggiera finché non troviamo un posto libero
           const itemsPerCircle = 6; 
-          const baseRadius = 100; // Mantenuta distanza fissa 100
-          const radiusIncrement = isMobile ? 40 : 60; 
-          
-          const circleIndex = Math.floor((index - 1) / itemsPerCircle);
-          const indexInCircle = (index - 1) % itemsPerCircle;
-          
-          const rotationOffset = circleIndex * (Math.PI / 4);
-          const angle = ((indexInCircle / itemsPerCircle) * 2 * Math.PI) + rotationOffset;
-          
-          const currentRadius = baseRadius + (circleIndex * radiusIncrement);
+          const baseRadius = 85; 
+          const radiusIncrement = isMobile ? 35 : 55; 
 
-          offsetX = currentRadius * Math.cos(angle);
-          offsetY = currentRadius * Math.sin(angle);
+          // Proviamo con raggi crescenti
+          for (let rIdx = 0; rIdx < 5 && !foundPosition; rIdx++) {
+            const currentRadius = baseRadius + (rIdx * radiusIncrement);
+            
+            // Proviamo angoli diversi
+            for (let angleIdx = 0; angleIdx < itemsPerCircle && !foundPosition; angleIdx++) {
+              const angle = ((angleIdx / itemsPerCircle) * 2 * Math.PI) + (rIdx * (Math.PI / 4));
+              
+              const trialOffsetX = currentRadius * Math.cos(angle);
+              const trialOffsetY = currentRadius * Math.sin(angle);
+
+              // Rettangolo di prova *inclusi i margini*
+              const trialRect = {
+                x1: pos.x + trialOffsetX - markerWidth / 2 - MARGIN_PIXELS,
+                y1: pos.y + trialOffsetY - markerHeight / 2 - MARGIN_PIXELS,
+                x2: pos.x + trialOffsetX + markerWidth / 2 + MARGIN_PIXELS,
+                y2: pos.y + trialOffsetY + markerHeight / 2 + MARGIN_PIXELS
+              };
+
+              // Verifichiamo se collide con rettangoli occupati esistenti
+              const collides = occupiedRects.some(r => !(
+                trialRect.x2 < r.x1 || 
+                trialRect.x1 > r.x2 || 
+                trialRect.y2 < r.y1 || 
+                trialRect.y1 > r.y2
+              ));
+
+              if (!collides) {
+                offsetX = trialOffsetX;
+                offsetY = trialOffsetY;
+                // Aggiungiamo il rettangolo occupato *reale* (senza margini extra)
+                occupiedRects.push({
+                  x1: pos.x + offsetX - markerWidth / 2,
+                  y1: pos.y + offsetY - markerHeight / 2,
+                  x2: pos.x + offsetX + markerWidth / 2,
+                  y2: pos.y + offsetY + markerHeight / 2
+                });
+                foundPosition = true;
+              }
+            }
+          }
+        }
+
+        // Se dopo tutti i tentativi non troviamo posto, forziamo uno spostamento
+        if (!foundPosition) {
+           offsetX = 150 * (Math.random() - 0.5);
+           offsetY = 150 * (Math.random() - 0.5);
         }
 
         new mapboxgl.Marker(el)
