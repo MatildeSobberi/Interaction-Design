@@ -71,7 +71,6 @@ export default function HomePage() {
     if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    // --- MODIFICA: Zoom impostato nuovamente a 6.5 ---
     if (currentZoom < 6.5) return;
 
     const coordinateGroups = punti.reduce((groups: any, punto: any) => {
@@ -98,7 +97,7 @@ export default function HomePage() {
         
         el.style.fontFamily = 'var(--font-roboto), sans-serif';
         el.style.background = 'rgba(255, 255, 255, 0.85)';
-        el.style.padding = isMobile ? '6px 12px' : '10px 20px';
+        el.style.padding = isMobile ? '4px 10px' : '8px 16px'; // Padding leggermente ridotto
         el.style.borderRadius = '25px';
         el.style.color = '#000';
         el.style.fontWeight = 'bold';
@@ -107,8 +106,9 @@ export default function HomePage() {
         el.style.whiteSpace = 'nowrap';
         el.style.position = 'absolute';
 
-        const baseSize = isMobile ? 12 : 16;
-        const extraSize = Math.min(punto.frequenzaTotal * 2.5, 40); 
+        // --- MODIFICA: Dimensioni font ridotte ---
+        const baseSize = isMobile ? 10 : 13; // Prima era 12 : 16
+        const extraSize = Math.min(punto.frequenzaTotal * 2, 30); // Moltiplicatore ridotto da 2.5 a 2
         el.style.fontSize = `${baseSize + extraSize}px`;
 
         document.body.appendChild(el);
