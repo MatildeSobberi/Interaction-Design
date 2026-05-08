@@ -13,15 +13,12 @@ export default function HomePage() {
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
   
-  // Stati per la gestione del caricamento e dell'interazione
   const [hasInteracted, setHasInteracted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    
-    // Controlla se l'utente ha già interagito in questa sessione browser
     const giaVisto = sessionStorage.getItem('visto');
     if (!giaVisto) {
       setHasInteracted(false);
@@ -57,7 +54,6 @@ export default function HomePage() {
       sessionStorage.setItem('visto', 'true');
     };
 
-    // Eventi che nascondono il titolo quando l'utente interagisce con la mappa
     map.current.on('zoomstart', handleFirstInteraction);
     map.current.on('mousedown', handleFirstInteraction);
     map.current.on('touchstart', handleFirstInteraction);
@@ -86,13 +82,11 @@ export default function HomePage() {
     });
   }, [punti, currentZoom, isMobile]);
 
-  // Prevenzione Hydration Error
   if (!isClient) return <div style={{ backgroundColor: '#fff', width: '100vw', height: '100vh' }} />;
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       
-      {/* Overlay e Titolo - Appare solo all'inizio o al refresh */}
       {!hasInteracted && (
         <div style={{
           position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
@@ -105,23 +99,22 @@ export default function HomePage() {
             textAlign: 'center', width: '90%'
           }}>
             <h1 style={{ 
-              fontSize: isMobile ? '32px' : '72px', 
+              fontSize: isMobile ? '28px' : '62px', 
               fontWeight: '700', 
               color: '#000', 
               marginBottom: '15px', 
-              lineHeight: '1.1',
-              maxWidth: '1000px',
-              margin: '0 auto',
-              wordBreak: 'keep-all'
+              lineHeight: '1.2',
+              maxWidth: '900px',
+              margin: '0 auto'
             }}>
               Is A.I. ever going to be able to understand the value of human experience when travelling?
             </h1>
             <p style={{ 
-              fontSize: isMobile ? '18px' : '24px', 
+              fontSize: isMobile ? '16px' : '22px', 
               color: '#333', 
               fontStyle: 'italic', 
               fontFamily: 'serif', 
-              marginTop: '30px' 
+              marginTop: '25px' 
             }}>
               Tap and zoom in the map
             </p>
@@ -129,7 +122,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* NAVBAR */}
       <nav style={{ 
         position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
         padding: '12px 35px', borderRadius: '40px',
