@@ -66,24 +66,22 @@ export default function HomePage() {
     if (currentZoom < 4) return;
 
     // Raggruppiamo i punti per coordinate esatte
-    const coordinateGroups = punti.reduce((groups, punto) => {
+    const coordinateGroups = punti.reduce((groups: any, punto: any) => {
       const key = `${punto.lng},${punto.lat}`;
       if (!groups[key]) {
         groups[key] = [];
       }
       groups[key].push(punto);
       return groups;
-    }, {});
+    }, {}); // Inizializzato correttamente per evitare errori di build
 
-    // Iteriamo su ogni gruppo di coordinate
     Object.keys(coordinateGroups).forEach(key => {
       const groupPunti = coordinateGroups[key];
       const [lng, lat] = key.split(',').map(Number);
       
-      // Ordiniamo le parole del gruppo per frequenza decrescente (opzionale)
-      groupPunti.sort((a, b) => b.frequenza - a.frequenza);
+      groupPunti.sort((a: any, b: any) => b.frequenza - a.frequenza);
 
-      groupPunti.forEach((punto, index) => {
+      groupPunti.forEach((punto: any, index: number) => {
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.innerText = punto.parola;
@@ -99,35 +97,25 @@ export default function HomePage() {
         el.style.position = 'absolute';
         el.style.whiteSpace = 'nowrap';
 
-        // --- NUOVA LOGICA A RAGGIERA ---
-        
         let offsetX = 0;
         let offsetY = 0;
 
-        if (index > 0) { // Il primo marker rimane al centro
-          // Parametri della raggiera
-          const itemsPerCircle = 8; // Numero di parole per ogni cerchio concentrico
-          const baseRadius = isMobile ? 40 : 60; // Raggio del primo cerchio in pixel
-          const radiusIncrement = isMobile ? 25 : 35; // Quanto si allarga ogni cerchio successivo
-
-          // Calcoliamo in quale cerchio si trova la parola attuale
+        if (index > 0) {
+          const itemsPerCircle = 8;
+          const baseRadius = isMobile ? 40 : 60;
+          const radiusIncrement = isMobile ? 25 : 35;
           const circleIndex = Math.floor((index - 1) / itemsPerCircle);
-          
-          // Calcoliamo l'angolo per questa parola all'interno del suo cerchio
           const indexInCircle = (index - 1) % itemsPerCircle;
-          const angle = (indexInCircle / itemsPerCircle) * 2 * Math.PI; // Angolo in radianti
-
-          // Calcoliamo il raggio attuale per questo cerchio
+          const angle = (indexInCircle / itemsPerCircle) * 2 * Math.PI;
           const currentRadius = baseRadius + (circleIndex * radiusIncrement);
 
-          // Trigonometria per convertire raggio e angolo in coordinate X e Y
           offsetX = currentRadius * Math.cos(angle);
           offsetY = currentRadius * Math.sin(angle);
         }
 
         new mapboxgl.Marker(el)
           .setLngLat([lng, lat])
-          .setOffset([offsetX, offsetY]) // Applichiamo l'offset calcolato
+          .setOffset([offsetX, offsetY])
           .addTo(map.current);
       });
     });
