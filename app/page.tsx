@@ -32,9 +32,14 @@ export default function HomePage() {
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) {
-        // RAGGRUPPAMENTO: Unisce parole uguali
+        // UNIAMO PAROLE UGUALI NELLA STESSA ZONA
+        // Arrotondiamo leggermente le coordinate per raggruppare parole molto vicine
         const raggruppati = data.reduce((acc: any[], curr: any) => {
-          const esistente = acc.find(p => p.parola.toLowerCase() === curr.parola.toLowerCase());
+          const esistente = acc.find(p => 
+            p.parola.toLowerCase() === curr.parola.toLowerCase() &&
+            Math.abs(p.lat - curr.lat) < 0.1 && 
+            Math.abs(p.lng - curr.lng) < 0.1
+          );
           if (esistente) {
             esistente.frequenza += (curr.frequenza || 1);
           } else {
@@ -71,15 +76,11 @@ export default function HomePage() {
     if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    const markerRects: any[] = [];
-    const puntiOrdinati = [...punti].sort((a, b) => b.frequenza - a.frequenza);
+    // Mostriamo le parole solo se lo zoom è sufficiente
+    if (currentZoom < 4) return;
 
-    puntiOrdinati.forEach((punto) => {
-      // Filtro coordinate errate
-      if (!punto.lat || !punto.lng || (punto.lat === 0 && punto.lng === 0)) return;
-      
-      // --- MODIFICA QUI: Appaiono solo da zoom 5 in poi ---
-      if (currentZoom < 5) return; 
+    punti.forEach((punto) => {
+      if (!punto.lat || !punto.lng) return;
 
       const el = document.createElement('div');
       el.className = 'custom-marker';
@@ -93,46 +94,16 @@ export default function HomePage() {
       el.style.backdropFilter = 'blur(4px)';
       el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
       el.style.whiteSpace = 'nowrap';
-      el.style.zIndex = String(Math.floor(punto.frequenza));
+      el.style.cursor = 'default';
 
+      // Grandezza basata sulla frequenza aggregata
       const baseSize = isMobile ? 12 : 16;
-      const extraSize = Math.min(punto.frequenza * 2.5, 40); 
+      const extraSize = Math.min(punto.frequenza * 2, 35); 
       el.style.fontSize = `${baseSize + extraSize}px`;
 
-      document.body.appendChild(el);
-      const rect = el.getBoundingClientRect();
-      document.body.removeChild(el);
-
-      const pos = map.current.project([punto.lng, punto.lat]);
-      let offsetY = 0;
-      let collision = true;
-      let attempts = 0;
-
-      while (collision && attempts < 5) {
-        const currentRect = {
-          left: pos.x - rect.width / 2,
-          top: (pos.y + offsetY) - rect.height / 2,
-          right: pos.x + rect.width / 2,
-          bottom: (pos.y + offsetY) + rect.height / 2
-        };
-
-        const hasOverlap = markerRects.some(r => {
-          return !(currentRect.right < r.left || currentRect.left > r.right || 
-                   currentRect.bottom < r.top || currentRect.top > r.bottom);
-        });
-
-        if (hasOverlap) {
-          offsetY += rect.height + 5;
-          attempts++;
-        } else {
-          collision = false;
-          markerRects.push(currentRect);
-        }
-      }
-
+      // RIMOSSO OFFSET: la parola starà esattamente sulle coordinate
       new mapboxgl.Marker(el)
         .setLngLat([punto.lng, punto.lat])
-        .setOffset([0, offsetY])
         .addTo(map.current);
     });
   }, [punti, currentZoom, isMobile]);
