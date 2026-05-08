@@ -10,9 +10,6 @@ mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 export default function HomePage() {
   const mapContainer = useRef<any>(null);
   const map = useRef<any>(null);
-  const [punti, setPunti] = useState<any[]>([]);
-  const [currentZoom, setCurrentZoom] = useState(0);
-  
   const [hasInteracted, setHasInteracted] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -28,37 +25,61 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!isClient) return;
-    const caricaDati = async () => {
-      const { data } = await supabase.from('segnalazioni').select('*');
-      if (data) {
-        // UNIAMO PAROLE UGUALI NELLA STESSA ZONA
-        // Arrotondiamo leggermente le coordinate per raggruppare parole molto vicine
-        const raggruppati = data.reduce((acc: any[], curr: any) => {
-          const esistente = acc.find(p => 
-            p.parola.toLowerCase() === curr.parola.toLowerCase() &&
-            Math.abs(p.lat - curr.lat) < 0.1 && 
-            Math.abs(p.lng - curr.lng) < 0.1
-          );
-          if (esistente) {
-            esistente.frequenza += (curr.frequenza || 1);
-          } else {
-            acc.push({ ...curr, frequenza: curr.frequenza || 1 });
-          }
-          return acc;
-        }, []);
-        setPunti(raggruppati);
-      }
-    };
-    caricaDati();
+    if (!isClient || !mapContainer.current) return;
 
-    if (map.current || !mapContainer.current) return;
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
       center: [12.49, 41.89],
       zoom: isMobile ? 1 : 2,
-      projection: { name: 'mercator' }
+    });
+
+    map.current.on('load', async () => {
+      const { data } = await supabase.from('segnalazioni').select('*');
+      
+      if (data) {
+        // Trasformiamo i dati in formato GeoJSON per Mapbox
+        const features = data.map(p => ({
+          type: 'Feature',
+          properties: { 
+            parola: p.parola,
+            // Calcolo dimensione font basato sulla frequenza
+            size: 14 + (Math.min(p.frequenza || 1, 10) * 3)
+          },
+          geometry: { type: 'Point', coordinates: [p.lng, p.lat] }
+        }));
+
+        map.current.addSource('punti-source', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: features }
+        });
+
+        // AGGIUNGIAMO IL LAYER DEI SIMBOLI (Gestisce le collisioni automaticamente)
+        map.current.addLayer({
+          id: 'punti-labels',
+          type: 'symbol',
+          source: 'punti-source',
+          layout: {
+            'text-field': ['get', 'parola'],
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+            'text-size': ['get', 'size'],
+            'text-variable-anchor': ['top', 'bottom', 'left', 'right'],
+            'text-radial-offset': 0.5,
+            'text-justify': 'auto',
+            // CRITICO: Impedisce la sovrapposizione tra testi
+            'text-allow-overlap': false, 
+            'text-ignore-placement': false,
+            'visibility': 'visible'
+          },
+          paint: {
+            'text-color': '#000000',
+            'text-halo-color': 'rgba(255,255,255,0.8)',
+            'text-halo-width': 2
+          },
+          // Le parole appaiono solo da zoom 4 in su
+          minzoom: 4
+        });
+      }
     });
 
     const handleFirstInteraction = () => {
@@ -66,47 +87,11 @@ export default function HomePage() {
       sessionStorage.setItem('visto', 'true');
     };
 
-    map.current.on('zoomstart', handleFirstInteraction);
     map.current.on('mousedown', handleFirstInteraction);
     map.current.on('touchstart', handleFirstInteraction);
-    map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
-  }, [isMobile, isClient]);
 
-  useEffect(() => {
-    if (!map.current) return;
-    document.querySelectorAll('.custom-marker').forEach(m => m.remove());
-
-    // Mostriamo le parole solo se lo zoom è sufficiente
-    if (currentZoom < 4) return;
-
-    punti.forEach((punto) => {
-      if (!punto.lat || !punto.lng) return;
-
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      el.innerText = punto.parola;
-      el.style.fontFamily = 'var(--font-roboto), sans-serif';
-      el.style.background = 'rgba(255, 255, 255, 0.85)';
-      el.style.padding = isMobile ? '4px 10px' : '8px 15px';
-      el.style.borderRadius = '20px';
-      el.style.color = '#000';
-      el.style.fontWeight = 'bold';
-      el.style.backdropFilter = 'blur(4px)';
-      el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-      el.style.whiteSpace = 'nowrap';
-      el.style.cursor = 'default';
-
-      // Grandezza basata sulla frequenza aggregata
-      const baseSize = isMobile ? 12 : 16;
-      const extraSize = Math.min(punto.frequenza * 2, 35); 
-      el.style.fontSize = `${baseSize + extraSize}px`;
-
-      // RIMOSSO OFFSET: la parola starà esattamente sulle coordinate
-      new mapboxgl.Marker(el)
-        .setLngLat([punto.lng, punto.lat])
-        .addTo(map.current);
-    });
-  }, [punti, currentZoom, isMobile]);
+    return () => map.current?.remove();
+  }, [isClient, isMobile]);
 
   if (!isClient) return null;
 
@@ -122,13 +107,17 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
       <nav style={{ position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, padding: '12px 35px', borderRadius: '40px', background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent', border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent', backdropFilter: hasInteracted ? 'blur(12px)' : 'none', transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? '15px' : '25px', width: 'fit-content' }}>
         <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
-        <a href="/" style={{ color: '#000', margin: '0 10px' }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg></a>
+        <a href="/" style={{ color: '#000', margin: '0 10px' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
+        </a>
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
+
       <div ref={mapContainer} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
     </main>
   );
