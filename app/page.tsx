@@ -20,9 +20,7 @@ export default function HomePage() {
   useEffect(() => {
     setIsClient(true);
     const giaVisto = sessionStorage.getItem('visto');
-    if (!giaVisto) {
-      setHasInteracted(false);
-    }
+    if (!giaVisto) setHasInteracted(false);
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
@@ -31,7 +29,6 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isClient) return;
-
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) setPunti(data);
@@ -39,7 +36,6 @@ export default function HomePage() {
     caricaDati();
 
     if (map.current || !mapContainer.current) return;
-    
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
@@ -61,108 +57,96 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!map.current) return;
-
-    // Puliamo i marker esistenti
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
-    // Ordiniamo i punti per frequenza (quelli più importanti vengono creati per primi)
+    const markerRects: any[] = [];
+
+    // Ordiniamo per frequenza per dare priorità visiva (z-index)
     const puntiOrdinati = [...punti].sort((a, b) => b.frequenza - a.frequenza);
 
-    const markerRects: DOMRect[] = [];
-
     puntiOrdinati.forEach((punto) => {
-      if (currentZoom < 3) return; // Non mostrare nulla se troppo lontano
+      if (currentZoom < 3) return;
 
       const el = document.createElement('div');
       el.className = 'custom-marker';
       el.innerText = punto.parola;
-      
-      // STILE
       el.style.fontFamily = 'var(--font-roboto), sans-serif';
-      el.style.background = 'rgba(255, 255, 255, 0.8)';
+      el.style.background = 'rgba(255, 255, 255, 0.85)';
       el.style.padding = isMobile ? '4px 10px' : '8px 15px';
       el.style.borderRadius = '20px';
       el.style.color = '#000';
       el.style.fontWeight = 'bold';
       el.style.backdropFilter = 'blur(4px)';
       el.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-      el.style.position = 'absolute';
       el.style.whiteSpace = 'nowrap';
-      el.style.zIndex = String(punto.frequenza); // Più citata = più "in alto"
+      el.style.zIndex = String(punto.frequenza);
 
       const baseSize = isMobile ? 10 : 14;
       el.style.fontSize = `${baseSize + (punto.frequenza * (isMobile ? 1.2 : 2.5))}px`;
 
-      // Aggiungiamo temporaneamente al body per calcolare le dimensioni reali
+      // Calcolo ingombro
       document.body.appendChild(el);
       const rect = el.getBoundingClientRect();
       document.body.removeChild(el);
 
-      // Calcoliamo la posizione sulla mappa per vedere se sbatte contro altri
+      // Posizione proiettata sullo schermo
       const pos = map.current.project([punto.lng, punto.lat]);
-      const currentRect = {
-        left: pos.x - rect.width / 2,
-        top: pos.y - rect.height / 2,
-        right: pos.x + rect.width / 2,
-        bottom: pos.y + rect.height / 2
-      };
+      let offsetY = 0;
+      let collision = true;
+      let finalX = pos.x;
+      let finalY = pos.y;
 
-      // Controllo collisione: se sbatte contro un marker già esistente (più importante), non lo mettiamo
-      const collisione = markerRects.some(r => {
-        return !(currentRect.right < r.left || 
-                 currentRect.left > r.right || 
-                 currentRect.bottom < r.top || 
-                 currentRect.top > r.bottom);
-      });
+      // Logica di "spostamento" se c'è collisione
+      while (collision) {
+        const currentRect = {
+          left: finalX - rect.width / 2,
+          top: (finalY + offsetY) - rect.height / 2,
+          right: finalX + rect.width / 2,
+          bottom: (finalY + offsetY) + rect.height / 2
+        };
 
-      if (!collisione) {
-        new mapboxgl.Marker(el)
-          .setLngLat([punto.lng, punto.lat])
-          .addTo(map.current);
-        
-        // Aggiungiamo il rettangolo alla lista di quelli occupati
-        markerRects.push(currentRect as DOMRect);
+        const hasOverlap = markerRects.some(r => {
+          return !(currentRect.right < r.left || 
+                   currentRect.left > r.right || 
+                   currentRect.bottom < r.top || 
+                   currentRect.top > r.bottom);
+        });
+
+        if (hasOverlap) {
+          // Se sbatte, sposta la parola in basso di un po' e riprova
+          offsetY += rect.height + 5; 
+        } else {
+          collision = false;
+          markerRects.push(currentRect);
+        }
       }
+
+      new mapboxgl.Marker(el)
+        .setLngLat([punto.lng, punto.lat])
+        .setOffset([0, offsetY]) // Applica lo spostamento calcolato
+        .addTo(map.current);
     });
   }, [punti, currentZoom, isMobile]);
 
-  if (!isClient) return <div style={{ backgroundColor: '#fff', width: '100vw', height: '100vh' }} />;
+  if (!isClient) return null;
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       {!hasInteracted && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 100, pointerEvents: 'none',
-          transition: 'opacity 0.8s ease', backdropFilter: 'blur(2px)'
-        }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 100, pointerEvents: 'none', transition: 'opacity 0.8s ease', backdropFilter: 'blur(2px)' }}>
           <div style={{ position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '95%' }}>
             <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2', maxWidth: '1100px', margin: '0 auto' }}>
               Is A.I. ever going to be able to understand the value of human experience when travelling?
             </h1>
-            <p style={{ fontSize: isMobile ? '16px' : '22px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '25px' }}>
-              Tap and zoom in the map
-            </p>
+            <p style={{ fontSize: isMobile ? '16px' : '22px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '25px' }}>Tap and zoom in the map</p>
           </div>
         </div>
       )}
 
-      <nav style={{ 
-        position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10,
-        padding: '12px 35px', borderRadius: '40px',
-        background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent',
-        border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent',
-        backdropFilter: hasInteracted ? 'blur(12px)' : 'none',
-        transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center',
-        gap: isMobile ? '15px' : '25px', width: 'fit-content', whiteSpace: 'nowrap'
-      }}>
+      <nav style={{ position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 10, padding: '12px 35px', borderRadius: '40px', background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent', border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent', backdropFilter: hasInteracted ? 'blur(12px)' : 'none', transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? '15px' : '25px', width: 'fit-content' }}>
         <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
         <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
-        <a href="/" style={{ color: '#000', display: 'flex', alignItems: 'center', margin: '0 10px' }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" />
-          </svg>
-        </a>
+        <a href="/" style={{ color: '#000', margin: '0 10px' }}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg></a>
         <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
         <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
       </nav>
