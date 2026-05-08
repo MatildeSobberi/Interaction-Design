@@ -91,6 +91,7 @@ export default function HomePage() {
       
       {/* Titolo e Overlay */}
       <div style={{
+        <div style={{
         position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
         backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 4, pointerEvents: 'none',
         transition: 'opacity 0.8s ease', 
@@ -102,12 +103,26 @@ export default function HomePage() {
           position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)',
           textAlign: 'center', width: '90%'
         }}>
-          <h1 style={{ fontSize: isMobile ? '28px' : '60px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2' }}>
-            What if A.I. started with a question,<br /> 
-            being curious about the world?<br /> 
-            But it could never <span style={{ fontStyle: 'italic' }}>trully</span> learn?
+          {/* NUOVO TITOLO AGGIORNATO */}
+          <h1 style={{ 
+            fontSize: isMobile ? '28px' : '54px', 
+            fontWeight: '700', 
+            color: '#000', 
+            marginBottom: '15px', 
+            lineHeight: '1.2',
+            maxWidth: '900px',
+            margin: '0 auto'
+          }}>
+            Is A.I. ever going to be able to understand the value of human experience when travelling?
           </h1>
-          <p style={{ fontSize: isMobile ? '16px' : '24px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '20px' }}>
+          
+          <p style={{ 
+            fontSize: isMobile ? '16px' : '22px', 
+            color: '#333', 
+            fontStyle: 'italic', 
+            fontFamily: 'serif', 
+            marginTop: '25px' 
+          }}>
             Tap and zoom in the map
           </p>
         </div>
