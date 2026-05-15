@@ -8,6 +8,7 @@ import { supabase } from './supabase';
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
 // --- SFONDO ANIMATO "TIPO FIGMA" (Trattini e distorsione) ---
+// Estratto come componente separato e sempre visibile
 const BackgroundAnimato = () => (
   <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#000', zIndex: -1 }}>
     {/* Griglia di trattini */}
@@ -161,7 +162,10 @@ export default function HomePage() {
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}>
-      
+
+      {/* ✅ SFONDO SEMPRE ATTIVO IN LOOP — visibile in ogni stato */}
+      <BackgroundAnimato />
+
       {!hasInteracted && (
         <div style={{ 
           position: 'absolute', inset: 0, zIndex: 100, 
@@ -169,8 +173,7 @@ export default function HomePage() {
           paddingLeft: isMobile ? '20px' : '80px', pointerEvents: 'none',
           transition: 'opacity 1s ease-in-out'
         }}>
-          
-          <BackgroundAnimato />
+          {/* ❌ BackgroundAnimato rimosso da qui — ora è sempre visibile sopra */}
 
           <h1 style={{ 
             fontFamily: '"trade-gothic-next", sans-serif',
