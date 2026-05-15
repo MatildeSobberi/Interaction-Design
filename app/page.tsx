@@ -7,45 +7,6 @@ import { supabase } from './supabase';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
-// --- SFONDO ANIMATO "TIPO FIGMA" (Trattini e distorsione) ---
-// Estratto come componente separato e sempre visibile
-const BackgroundAnimato = () => (
-  <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#000', zIndex: -1 }}>
-    {/* Griglia di trattini */}
-    <div className="dashes-grid" style={{
-      width: '200%',
-      height: '200%',
-      position: 'absolute',
-      top: '-50%',
-      left: '-50%',
-      backgroundImage: 'radial-gradient(rgba(255,255,255,0.4) 1px, transparent 0)',
-      backgroundSize: '40px 30px',
-      backgroundRepeat: 'repeat',
-    }} />
-    
-    {/* Overlay per l'effetto vignetta (buio ai bordi) */}
-    <div style={{
-      position: 'absolute',
-      inset: 0,
-      background: 'radial-gradient(circle at center, transparent 0%, black 85%)'
-    }} />
-
-    <style dangerouslySetInnerHTML={{ __html: `
-      @keyframes figmaMorph {
-        0% { transform: perspective(1000px) rotateX(25deg) rotateY(0deg) scale(1); opacity: 0.3; }
-        50% { transform: perspective(1000px) rotateX(30deg) rotateY(2deg) scale(1.05); opacity: 0.6; }
-        100% { transform: perspective(1000px) rotateX(25deg) rotateY(0deg) scale(1); opacity: 0.3; }
-      }
-      .dashes-grid {
-        animation: figmaMorph 12s ease-in-out infinite !important;
-        mask-image: linear-gradient(to right, white 12px, transparent 12px);
-        -webkit-mask-image: linear-gradient(to right, white 12px, transparent 12px);
-        will-change: transform;
-      }
-    `}} />
-  </div>
-);
-
 export default function HomePage() {
   const mapContainer = useRef<any>(null);
   const map = useRef<any>(null);
@@ -66,7 +27,6 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Logica Mappa e Caricamento Dati
   useEffect(() => {
     if (!isClient) return;
     
@@ -101,9 +61,8 @@ export default function HomePage() {
       sessionStorage.setItem('visto', 'true');
     });
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
-  }, [isMobile, isClient]);
+  }, [isMobile, isClient, punti]);
 
-  // Gestione Punti e Marker Parole
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) return;
 
@@ -111,9 +70,7 @@ export default function HomePage() {
     const geojson = {
       type: 'FeatureCollection',
       features: punti.map(p => ({
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-        properties: {}
+        type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] }, properties: {}
       }))
     };
 
@@ -162,24 +119,39 @@ export default function HomePage() {
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}>
-
-      {/* ✅ SFONDO SEMPRE ATTIVO IN LOOP — visibile in ogni stato */}
-      <BackgroundAnimato />
-
+      
       {!hasInteracted && (
         <div style={{ 
           position: 'absolute', inset: 0, zIndex: 100, 
           display: 'flex', flexDirection: 'column', justifyContent: 'center', 
-          paddingLeft: isMobile ? '20px' : '80px', pointerEvents: 'none',
+          paddingLeft: isMobile ? '20px' : '80px',
           transition: 'opacity 1s ease-in-out'
         }}>
-          {/* ❌ BackgroundAnimato rimosso da qui — ora è sempre visibile sopra */}
+          
+          {/* IL TUO VIDEO DI SFONDO */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              zIndex: -1
+            }}
+          >
+            <source src="/hero-bg.mp4" type="video/mp4" />
+          </video>
 
           <h1 style={{ 
             fontFamily: '"trade-gothic-next", sans-serif',
-            fontSize: isMobile ? '60px' : '180px',
-            fontWeight: 900, color: '#FFFFFF', lineHeight: '0.85',
-            letterSpacing: '-0.04em', textTransform: 'uppercase', margin: '0'
+            fontSize: isMobile ? '60px' : '200px',
+            fontWeight: 900, color: '#FFFFFF', lineHeight: '0.9',
+            letterSpacing: '-4px', textTransform: 'uppercase', margin: '0'
           }}>
             DIARY OF<br />EXPERIENCE
           </h1>
@@ -188,7 +160,7 @@ export default function HomePage() {
             fontFamily: '"libre-caslon-text", serif',
             fontSize: isMobile ? '24px' : '54px',
             fontWeight: 400, color: '#FFFFFF', lineHeight: '1.1',
-            letterSpacing: '-0.04em', marginTop: '40px', maxWidth: isMobile ? '90%' : '1000px'
+            letterSpacing: '-4px', marginTop: '40px', maxWidth: isMobile ? '90%' : '1000px'
           }}>
             Is A.I. ever going to be able to understand the value of human experience when travelling?
           </p>
@@ -196,7 +168,7 @@ export default function HomePage() {
           <p style={{ 
             fontFamily: '"libre-caslon-text", serif',
             fontSize: isMobile ? '16px' : '24px',
-            color: '#FFFFFF', letterSpacing: '-0.04em', marginTop: '30px', opacity: 0.8
+            color: '#FFFFFF', letterSpacing: '-4px', marginTop: '30px', opacity: 0.8
           }}>
             Zoom in the map
           </p>
