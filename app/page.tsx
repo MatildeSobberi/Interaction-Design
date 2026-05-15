@@ -7,38 +7,12 @@ import { supabase } from './supabase';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
-// --- COMPONENTE SFONDO ANIMATO (GRIGLIA PROSPETTICA) ---
+// --- COMPONENTE SFONDO ANIMATO ---
+// Utilizza le classi CSS che abbiamo aggiunto in globals.css
 const BackgroundAnimato = () => (
   <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#000', zIndex: -1 }}>
-    {/* Griglia */}
-    <div style={{
-      width: '300%',
-      height: '300%',
-      position: 'absolute',
-      top: '-100%',
-      left: '-100%',
-      backgroundImage: `
-        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px),
-        linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px)
-      `,
-      backgroundSize: '80px 80px',
-      transform: 'perspective(500px) rotateX(60deg)',
-      animation: 'gridMove 20s linear infinite',
-    }} />
-    
-    {/* Sfumatura ai bordi (Vignetta nera) */}
-    <div style={{
-      position: 'absolute',
-      inset: 0,
-      background: 'radial-gradient(circle at center, transparent 0%, black 90%)'
-    }} />
-
-    <style dangerouslySetInnerHTML={{ __html: `
-      @keyframes gridMove {
-        0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
-        100% { transform: perspective(500px) rotateX(60deg) translateY(80px); }
-      }
-    `}} />
+    <div className="grid-animated" />
+    <div className="vignette-overlay" />
   </div>
 );
 
@@ -62,7 +36,7 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Caricamento dati e Setup Mappa
+  // Caricamento dati da Supabase e inizializzazione Mappa
   useEffect(() => {
     if (!isClient) return;
     
@@ -92,50 +66,53 @@ export default function HomePage() {
     });
 
     map.current.on('load', caricaDati);
-    map.current.on('movestart', () => {
+
+    // Quando l'utente interagisce (sposta o zoomma), nascondiamo l'overlay
+    const handleInteraction = () => {
       setHasInteracted(true);
       sessionStorage.setItem('visto', 'true');
-    });
+    };
+
+    map.current.on('movestart', handleInteraction);
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
   }, [isMobile, isClient]);
 
-  // Gestione Cerchi e Marker
+  // Gestione Layer Cerchi (fino a zoom 7) e Marker Parole (da zoom 7 in poi)
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !map.current.isStyleLoaded()) return;
 
-    // Logica Cerchi (Punti neri)
     const sourceId = 'punti-source';
-    if (map.current.isStyleLoaded()) {
-      const geojson = {
-        type: 'FeatureCollection',
-        features: punti.map(p => ({
-          type: 'Feature',
-          geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
-          properties: {}
-        }))
-      };
-      if (map.current.getSource(sourceId)) {
-        map.current.getSource(sourceId).setData(geojson);
-      } else {
-        map.current.addSource(sourceId, { type: 'geojson', data: geojson });
-        map.current.addLayer({
-          id: 'punti-circles',
-          type: 'circle',
-          source: sourceId,
-          paint: {
-            'circle-radius': isMobile ? 6 : 8,
-            'circle-color': '#000000',
-            'circle-opacity': 0.5,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff'
-          },
-          maxzoom: 7 
-        });
-      }
+    const geojson = {
+      type: 'FeatureCollection',
+      features: punti.map(p => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: {}
+      }))
+    };
+
+    if (map.current.getSource(sourceId)) {
+      map.current.getSource(sourceId).setData(geojson);
+    } else {
+      map.current.addSource(sourceId, { type: 'geojson', data: geojson });
+      map.current.addLayer({
+        id: 'punti-circles',
+        type: 'circle',
+        source: sourceId,
+        paint: {
+          'circle-radius': isMobile ? 6 : 8,
+          'circle-color': '#000000',
+          'circle-opacity': 0.5,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        },
+        maxzoom: 7 
+      });
     }
 
-    // Logica Parole (Zoom > 7)
+    // Rimuove i marker esistenti per ridisegnarli in base allo zoom
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
+
     if (currentZoom >= 7) {
       punti.forEach((punto: any) => {
         const el = document.createElement('div');
@@ -149,6 +126,7 @@ export default function HomePage() {
           color: #000;
           font-weight: 900;
           backdrop-filter: blur(5px);
+          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
           font-size: ${14 + Math.min(punto.frequenzaTotal * 2, 30)}px;
           white-space: nowrap;
         `;
@@ -160,9 +138,9 @@ export default function HomePage() {
   if (!isClient) return null;
 
   return (
-    <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+    <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}>
       
-      {/* OVERLAY INIZIALE */}
+      {/* OVERLAY INIZIALE (Testi e Sfondo Animato) */}
       {!hasInteracted && (
         <div style={{ 
           position: 'absolute', inset: 0, zIndex: 100, 
@@ -173,7 +151,7 @@ export default function HomePage() {
           
           <BackgroundAnimato />
 
-          {/* TITOLO PRINCIPALE */}
+          {/* TITOLO - Trade Gothic Next LT Pro Heavy */}
           <h1 style={{ 
             fontFamily: '"trade-gothic-next", sans-serif',
             fontSize: isMobile ? '60px' : '180px',
@@ -187,7 +165,7 @@ export default function HomePage() {
             DIARY OF<br />EXPERIENCE
           </h1>
 
-          {/* SOTTOTITOLO */}
+          {/* SOTTOTITOLO - Libre Caslon Text */}
           <p style={{ 
             fontFamily: '"libre-caslon-text", serif',
             fontSize: isMobile ? '24px' : '54px',
@@ -201,7 +179,7 @@ export default function HomePage() {
             Is A.I. ever going to be able to understand the value of human experience when travelling?
           </p>
 
-          {/* TESTO ZOOM */}
+          {/* TEXT ZOOM */}
           <p style={{ 
             fontFamily: '"libre-caslon-text", serif',
             fontSize: isMobile ? '16px' : '24px',
