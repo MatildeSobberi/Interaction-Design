@@ -12,6 +12,7 @@ export default function HomePage() {
   const map = useRef<any>(null);
   const [punti, setPunti] = useState<any[]>([]);
   const [currentZoom, setCurrentZoom] = useState(0);
+  
   const [hasInteracted, setHasInteracted] = useState(true); 
   const [isMobile, setIsMobile] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -27,7 +28,42 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Logica Mappa e Punti
+  const setupCircles = (mapInstance: any, dataPunti: any[]) => {
+    if (!mapInstance || !dataPunti.length) return;
+
+    const sourceId = 'punti-source';
+    const layerId = 'punti-circles';
+
+    const geojson = {
+      type: 'FeatureCollection',
+      features: dataPunti.map(p => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: {}
+      }))
+    };
+
+    if (mapInstance.getSource(sourceId)) {
+      mapInstance.getSource(sourceId).setData(geojson);
+    } else {
+      mapInstance.addSource(sourceId, { type: 'geojson', data: geojson });
+      mapInstance.addLayer({
+        id: layerId,
+        type: 'circle',
+        source: sourceId,
+        paint: {
+          'circle-radius': isMobile ? 6 : 8,
+          'circle-color': '#000000',
+          'circle-opacity': 0.5,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff'
+        },
+        // Pallini visibili fino allo zoom 7
+        maxzoom: 7 
+      });
+    }
+  };
+
   useEffect(() => {
     if (!isClient) return;
     
@@ -38,127 +74,158 @@ export default function HomePage() {
           const parolaNormalizzata = curr.parola.trim().toLowerCase();
           const esistente = acc.find(p => 
             p.parola.toLowerCase() === parolaNormalizzata &&
-            Math.abs(p.lat - curr.lat) < 0.01 && Math.abs(p.lng - curr.lng) < 0.01
+            Math.abs(p.lat - curr.lat) < 0.01 && 
+            Math.abs(p.lng - curr.lng) < 0.01
           );
-          if (esistente) { esistente.frequenzaTotal += (curr.frequenza || 1); } 
-          else { acc.push({ ...curr, parola: curr.parola.trim(), frequenzaTotal: curr.frequenza || 1 }); }
+          if (esistente) {
+            esistente.frequenzaTotal += (curr.frequenza || 1);
+          } else {
+            acc.push({ ...curr, parola: curr.parola.trim(), frequenzaTotal: curr.frequenza || 1 });
+          }
           return acc;
         }, []);
         setPunti(raggruppati);
       }
     };
 
-    if (map.current) return;
+    if (map.current || !mapContainer.current) return;
+    
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/light-v11',
       center: [12.49, 41.89],
       zoom: isMobile ? 1 : 2,
+      projection: { name: 'mercator' }
     });
 
-    map.current.on('load', caricaDati);
-    map.current.on('movestart', () => {
+    map.current.on('load', () => {
+      caricaDati();
+    });
+
+    map.current.on('sourcedata', (e: any) => {
+      if (e.isSourceLoaded && punti.length > 0) {
+        setupCircles(map.current, punti);
+      }
+    });
+
+    const hideTitle = () => {
       setHasInteracted(true);
       sessionStorage.setItem('visto', 'true');
-    });
-    map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
-  }, [isMobile, isClient, punti]);
-
-  // Gestione Cerchi e Marker
-  useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
-
-    const sourceId = 'punti-source';
-    const geojson = {
-      type: 'FeatureCollection',
-      features: punti.map(p => ({
-        type: 'Feature', geometry: { type: 'Point', coordinates: [p.lng, p.lat] }, properties: {}
-      }))
     };
 
-    if (map.current.getSource(sourceId)) {
-      map.current.getSource(sourceId).setData(geojson);
-    } else {
-      map.current.addSource(sourceId, { type: 'geojson', data: geojson });
-      map.current.addLayer({
-        id: 'punti-circles',
-        type: 'circle',
-        source: sourceId,
-        paint: {
-          'circle-radius': isMobile ? 6 : 8,
-          'circle-color': '#000000',
-          'circle-opacity': 0.5,
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
-        },
-        maxzoom: 7 
-      });
-    }
+    map.current.on('movestart', hideTitle);
+    map.current.on('zoom', () => {
+      if (map.current) setCurrentZoom(map.current.getZoom());
+    });
+  }, [isMobile, isClient]);
 
+  useEffect(() => {
+    if (map.current && map.current.isStyleLoaded() && punti.length > 0) {
+      setupCircles(map.current, punti);
+    }
+  }, [punti]);
+
+  useEffect(() => {
+    if (!map.current) return;
     document.querySelectorAll('.custom-marker').forEach(m => m.remove());
-    if (currentZoom >= 7) {
-      punti.forEach((punto: any) => {
+
+    // Parole visibili solo da zoom 7 in poi
+    if (currentZoom < 7) return;
+
+    const coordinateGroups = punti.reduce((groups: any, punto: any) => {
+      if (!punto.lat || !punto.lng) return groups;
+      const key = `${punto.lng.toFixed(2)},${punto.lat.toFixed(2)}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(punto);
+      return groups;
+    }, {});
+
+    Object.keys(coordinateGroups).forEach(key => {
+      const groupPunti = coordinateGroups[key];
+      const [lng, lat] = key.split(',').map(Number);
+      groupPunti.sort((a: any, b: any) => b.frequenzaTotal - a.frequenzaTotal);
+
+      const occupiedRects: any[] = [];
+      const MARGIN_PIXELS = 10; 
+
+      groupPunti.forEach((punto: any) => {
         const el = document.createElement('div');
         el.className = 'custom-marker';
         el.innerText = punto.parola;
-        el.style.cssText = `
-          font-family: "trade-gothic-next", sans-serif;
-          background: rgba(255, 255, 255, 0.95);
-          padding: 8px 16px;
-          border-radius: 25px;
-          color: #000;
-          font-weight: 900;
-          backdrop-filter: blur(5px);
-          font-size: ${14 + Math.min(punto.frequenzaTotal * 2, 30)}px;
-          white-space: nowrap;
-        `;
-        new mapboxgl.Marker(el).setLngLat([punto.lng, punto.lat]).addTo(map.current);
+        el.style.fontFamily = 'var(--font-roboto), sans-serif';
+        el.style.background = 'rgba(255, 255, 255, 0.85)';
+        el.style.padding = isMobile ? '4px 10px' : '8px 16px';
+        el.style.borderRadius = '25px';
+        el.style.color = '#000';
+        el.style.fontWeight = 'bold';
+        el.style.backdropFilter = 'blur(5px)';
+        el.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+        el.style.whiteSpace = 'nowrap';
+        el.style.position = 'absolute';
+
+        const baseSize = isMobile ? 10 : 13;
+        const extraSize = Math.min(punto.frequenzaTotal * 2, 30);
+        el.style.fontSize = `${baseSize + extraSize}px`;
+
+        document.body.appendChild(el);
+        const markerWidth = el.offsetWidth;
+        const markerHeight = el.offsetHeight;
+        document.body.removeChild(el);
+
+        const pos = map.current.project([lng, lat]);
+        let offsetX = 0; let offsetY = 0; let foundPosition = false;
+
+        if (occupiedRects.length === 0) {
+          occupiedRects.push({ x1: pos.x - markerWidth / 2, y1: pos.y - markerHeight / 2, x2: pos.x + markerWidth / 2, y2: pos.y + markerHeight / 2 });
+          foundPosition = true;
+        } else {
+          const itemsPerCircle = 6; const baseRadius = 85; const radiusIncrement = isMobile ? 35 : 55; 
+          for (let rIdx = 0; rIdx < 5 && !foundPosition; rIdx++) {
+            const currentRadius = baseRadius + (rIdx * radiusIncrement);
+            for (let angleIdx = 0; angleIdx < itemsPerCircle && !foundPosition; angleIdx++) {
+              const angle = ((angleIdx / itemsPerCircle) * 2 * Math.PI) + (rIdx * (Math.PI / 4));
+              const trialOffsetX = currentRadius * Math.cos(angle);
+              const trialOffsetY = currentRadius * Math.sin(angle);
+              const trialRect = { x1: pos.x + trialOffsetX - markerWidth / 2 - MARGIN_PIXELS, y1: pos.y + trialOffsetY - markerHeight / 2 - MARGIN_PIXELS, x2: pos.x + trialOffsetX + markerWidth / 2 + MARGIN_PIXELS, y2: pos.y + trialOffsetY + markerHeight / 2 + MARGIN_PIXELS };
+              const collides = occupiedRects.some(r => !(trialRect.x2 < r.x1 || trialRect.x1 > r.x2 || trialRect.y2 < r.y1 || trialRect.y1 > r.y2));
+              if (!collides) {
+                offsetX = trialOffsetX; offsetY = trialOffsetY;
+                occupiedRects.push({ x1: pos.x + offsetX - markerWidth / 2, y1: pos.y + offsetY - markerHeight / 2, x2: pos.x + offsetX + markerWidth / 2, y2: pos.y + offsetY + markerHeight / 2 });
+                foundPosition = true;
+              }
+            }
+          }
+        }
+        if (!foundPosition) { offsetX = 150 * (Math.random() - 0.5); offsetY = 150 * (Math.random() - 0.5); }
+        new mapboxgl.Marker(el).setLngLat([lng, lat]).setOffset([offsetX, offsetY]).addTo(map.current);
       });
-    }
+    });
   }, [punti, currentZoom, isMobile]);
 
   if (!isClient) return null;
 
   return (
-    <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
-      
-      {/* OVERLAY SEMITRASPARENTE */}
+    <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#fff' }}>
       {!hasInteracted && (
-        <div style={{ 
-          position: 'absolute', inset: 0, zIndex: 100, 
-          backgroundColor: 'rgba(0, 0, 0, 0.85)', // Sfondo nero opaco semitrasparente
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', 
-          paddingLeft: isMobile ? '20px' : '80px', pointerEvents: 'none',
-          transition: 'opacity 0.8s ease'
-        }}>
-          
-          <h1 style={{ 
-            fontFamily: '"trade-gothic-next", sans-serif',
-            fontSize: isMobile ? '60px' : '180px',
-            fontWeight: 100, color: '#FFFFFF', lineHeight: '0.9',
-            letterSpacing: '-4px', textTransform: 'uppercase', margin: '0'
-          }}>
-            DIARY OF<br />EXPERIENCE
-          </h1>
-
-          <p style={{ 
-            fontFamily: '"libre-caslon-text", serif',
-            fontSize: isMobile ? '24px' : '54px',
-            fontWeight: 25, color: '#FFFFFF', lineHeight: '1.1',
-            letterSpacing: '-4px', marginTop: '40px', maxWidth: isMobile ? '90%' : '1000px'
-          }}>
-            Is A.I. ever going to be able to understand the value of human experience when travelling?
-          </p>
-
-          <p style={{ 
-            fontFamily: '"libre-caslon-text", serif',
-            fontSize: isMobile ? '16px' : '24px',
-            fontWeight: 15, color: '#FFFFFF', marginTop: '30px', opacity: 0.8
-          }}>
-            Zoom in the map
-          </p>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(255, 255, 255, 0.6)', zIndex: 100, pointerEvents: 'none', transition: 'opacity 0.8s ease', backdropFilter: 'blur(3px)' }}>
+          <div style={{ position: 'absolute', top: '55%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '95%' }}>
+            <h1 style={{ fontSize: isMobile ? '28px' : '62px', fontWeight: '700', color: '#000', marginBottom: '15px', lineHeight: '1.2', maxWidth: '1100px', margin: '0 auto' }}>
+              Is A.I. ever going to be able to understand the value of human experience when travelling?
+            </h1>
+            <p style={{ fontSize: isMobile ? '16px' : '22px', color: '#333', fontStyle: 'italic', fontFamily: 'serif', marginTop: '25px' }}>Tap and zoom in the map</p>
+          </div>
         </div>
       )}
+
+      <nav style={{ position: 'absolute', top: '25px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, padding: '12px 35px', borderRadius: '40px', background: hasInteracted ? 'rgba(230, 230, 230, 0.7)' : 'transparent', border: hasInteracted ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid transparent', backdropFilter: hasInteracted ? 'blur(12px)' : 'none', transition: 'all 0.8s ease', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? '15px' : '25px', width: 'fit-content' }}>
+        <a href="/about-us" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About Us</a>
+        <a href="/about-you" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>About You</a>
+        <a href="/" style={{ color: '#000', margin: '0 10px' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
+        </a>
+        <a href="/gallery" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Gallery</a>
+        <a href="/feedback" style={{ color: '#000', textDecoration: 'none', fontSize: '11px', fontWeight: '500', textTransform: 'uppercase', opacity: 0.6 }}>Feedback</a>
+      </nav>
 
       <div ref={mapContainer} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
     </main>
