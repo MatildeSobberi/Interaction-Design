@@ -7,39 +7,38 @@ import { supabase } from './supabase';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
-// --- COMPONENTE SFONDO ANIMATO ---
+// --- SFONDO ANIMATO "TIPO FIGMA" (Trattini e distorsione) ---
 const BackgroundAnimato = () => (
   <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', backgroundColor: '#000', zIndex: -1 }}>
-    {/* La griglia */}
-    <div className="grid-layer" style={{
-      width: '400%',
-      height: '400%',
+    {/* Griglia di trattini */}
+    <div className="dashes-grid" style={{
+      width: '200%',
+      height: '200%',
       position: 'absolute',
-      top: '-150%',
-      left: '-150%',
-      backgroundImage: `
-        linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px),
-        linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px)
-      `,
-      backgroundSize: '100px 100px',
-      transform: 'perspective(500px) rotateX(65deg)',
+      top: '-50%',
+      left: '-50%',
+      backgroundImage: 'radial-gradient(rgba(255,255,255,0.4) 1px, transparent 0)',
+      backgroundSize: '40px 30px',
+      backgroundRepeat: 'repeat',
     }} />
     
-    {/* Vignetta nera per sfumare */}
+    {/* Overlay per l'effetto vignetta (buio ai bordi) */}
     <div style={{
       position: 'absolute',
       inset: 0,
       background: 'radial-gradient(circle at center, transparent 0%, black 85%)'
     }} />
 
-    {/* CSS INIETTATO A FORZA */}
     <style dangerouslySetInnerHTML={{ __html: `
-      @keyframes moveGrid {
-        from { transform: perspective(500px) rotateX(65deg) translateY(0); }
-        to { transform: perspective(500px) rotateX(65deg) translateY(100px); }
+      @keyframes figmaMorph {
+        0% { transform: perspective(1000px) rotateX(25deg) rotateY(0deg) scale(1); opacity: 0.3; }
+        50% { transform: perspective(1000px) rotateX(30deg) rotateY(2deg) scale(1.05); opacity: 0.6; }
+        100% { transform: perspective(1000px) rotateX(25deg) rotateY(0deg) scale(1); opacity: 0.3; }
       }
-      .grid-layer {
-        animation: moveGrid 15s linear infinite !important;
+      .dashes-grid {
+        animation: figmaMorph 12s ease-in-out infinite !important;
+        mask-image: linear-gradient(to right, white 12px, transparent 12px);
+        -webkit-mask-image: linear-gradient(to right, white 12px, transparent 12px);
         will-change: transform;
       }
     `}} />
@@ -59,14 +58,17 @@ export default function HomePage() {
     setIsClient(true);
     const giaVisto = sessionStorage.getItem('visto');
     if (!giaVisto) setHasInteracted(false);
+    
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Logica Mappa e Caricamento Dati
   useEffect(() => {
     if (!isClient) return;
+    
     const caricaDati = async () => {
       const { data } = await supabase.from('segnalazioni').select('*');
       if (data) {
@@ -98,11 +100,11 @@ export default function HomePage() {
       sessionStorage.setItem('visto', 'true');
     });
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
-  }, [isMobile, isClient, punti]);
+  }, [isMobile, isClient]);
 
+  // Gestione Punti e Marker Parole
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) return;
-    document.querySelectorAll('.custom-marker').forEach(m => m.remove());
 
     const sourceId = 'punti-source';
     const geojson = {
@@ -133,6 +135,7 @@ export default function HomePage() {
       });
     }
 
+    document.querySelectorAll('.custom-marker').forEach(m => m.remove());
     if (currentZoom >= 7) {
       punti.forEach((punto: any) => {
         const el = document.createElement('div');
@@ -158,6 +161,7 @@ export default function HomePage() {
 
   return (
     <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}>
+      
       {!hasInteracted && (
         <div style={{ 
           position: 'absolute', inset: 0, zIndex: 100, 
@@ -165,6 +169,7 @@ export default function HomePage() {
           paddingLeft: isMobile ? '20px' : '80px', pointerEvents: 'none',
           transition: 'opacity 1s ease-in-out'
         }}>
+          
           <BackgroundAnimato />
 
           <h1 style={{ 
@@ -194,6 +199,7 @@ export default function HomePage() {
           </p>
         </div>
       )}
+
       <div ref={mapContainer} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} />
     </main>
   );
