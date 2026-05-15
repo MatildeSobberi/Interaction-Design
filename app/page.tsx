@@ -27,6 +27,7 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Logica Mappa e Punti
   useEffect(() => {
     if (!isClient) return;
     
@@ -63,6 +64,7 @@ export default function HomePage() {
     map.current.on('zoom', () => setCurrentZoom(map.current.getZoom()));
   }, [isMobile, isClient, punti]);
 
+  // Gestione Cerchi e Marker
   useEffect(() => {
     if (!map.current || !map.current.isStyleLoaded()) return;
 
@@ -101,7 +103,7 @@ export default function HomePage() {
         el.innerText = punto.parola;
         el.style.cssText = `
           font-family: "trade-gothic-next", sans-serif;
-          background: rgba(255, 255, 255, 0.9);
+          background: rgba(255, 255, 255, 0.95);
           padding: 8px 16px;
           border-radius: 25px;
           color: #000;
@@ -118,38 +120,21 @@ export default function HomePage() {
   if (!isClient) return null;
 
   return (
-    <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#000' }}>
+    <main style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       
+      {/* OVERLAY SEMITRASPARENTE */}
       {!hasInteracted && (
         <div style={{ 
           position: 'absolute', inset: 0, zIndex: 100, 
+          backgroundColor: 'rgba(0, 0, 0, 0.85)', // Sfondo nero opaco semitrasparente
           display: 'flex', flexDirection: 'column', justifyContent: 'center', 
-          paddingLeft: isMobile ? '20px' : '80px',
-          transition: 'opacity 1s ease-in-out'
+          paddingLeft: isMobile ? '20px' : '80px', pointerEvents: 'none',
+          transition: 'opacity 0.8s ease'
         }}>
           
-          {/* IL TUO VIDEO DI SFONDO */}
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              zIndex: -1
-            }}
-          >
-            <source src="/hero-bg.mp4" type="video/mp4" />
-          </video>
-
           <h1 style={{ 
             fontFamily: '"trade-gothic-next", sans-serif',
-            fontSize: isMobile ? '60px' : '200px',
+            fontSize: isMobile ? '60px' : '180px',
             fontWeight: 900, color: '#FFFFFF', lineHeight: '0.9',
             letterSpacing: '-4px', textTransform: 'uppercase', margin: '0'
           }}>
