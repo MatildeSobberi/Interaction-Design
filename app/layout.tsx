@@ -1,10 +1,4 @@
 import './globals.css';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Diary of Experience',
-  description: 'A travel experience project',
-};
 
 export default function RootLayout({
   children,
@@ -14,10 +8,12 @@ export default function RootLayout({
   return (
     <html lang="it">
       <head>
-        {/* Il tuo link Adobe Fonts */}
+        {/* Adobe Fonts Project */}
         <link rel="stylesheet" href="https://use.typekit.net/fnc5rgs.css" />
       </head>
-      <body>{children}</body>
+      <body style={{ margin: 0, padding: 0, backgroundColor: '#000' }}>
+        {children}
+      </body>
     </html>
   );
 }
