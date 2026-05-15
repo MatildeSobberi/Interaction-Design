@@ -135,7 +135,7 @@ export default function HomePage() {
           <h1 style={{ 
             fontFamily: '"trade-gothic-next", sans-serif',
             fontSize: isMobile ? '60px' : '180px',
-            fontWeight: 900, color: '#FFFFFF', lineHeight: '0.9',
+            fontWeight: 200, color: '#FFFFFF', lineHeight: '0.9',
             letterSpacing: '-4px', textTransform: 'uppercase', margin: '0'
           }}>
             DIARY OF<br />EXPERIENCE
@@ -144,7 +144,7 @@ export default function HomePage() {
           <p style={{ 
             fontFamily: '"libre-caslon-text", serif',
             fontSize: isMobile ? '24px' : '54px',
-            fontWeight: 400, color: '#FFFFFF', lineHeight: '1.1',
+            fontWeight: 50, color: '#FFFFFF', lineHeight: '1.1',
             letterSpacing: '-4px', marginTop: '40px', maxWidth: isMobile ? '90%' : '1000px'
           }}>
             Is A.I. ever going to be able to understand the value of human experience when travelling?
@@ -153,7 +153,7 @@ export default function HomePage() {
           <p style={{ 
             fontFamily: '"libre-caslon-text", serif',
             fontSize: isMobile ? '16px' : '24px',
-            color: '#FFFFFF', letterSpacing: '-4px', marginTop: '30px', opacity: 0.8
+            fontWeight: 30, color: '#FFFFFF', marginTop: '30px', opacity: 0.8
           }}>
             Zoom in the map
           </p>
